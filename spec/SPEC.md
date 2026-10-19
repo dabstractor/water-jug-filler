@@ -6,40 +6,55 @@ Fill a 4 gallon jug with RO water and shut the valve automatically when the wate
 ## Hardware
 | Part | Role |
 |---|---|
-| Arduino Pro Micro (5V/16MHz) | Controller |
+| Raspberry Pi Pico or other RP2040 board (3.3 V logic, no wireless variant needed) | Controller. Pin names below assume the Pico pinout |
 | FPD180A solenoid, 12V, ~400mA, normally closed | Water valve |
-| Blue MOSFET module | Switches the valve. Gate resistor and pull-down are already on it |
+| Logic-level MOSFET module (IRLZ44N/IRL520 class) | Switches the valve. Must fully turn on from a 3.3 V gate — see "MOSFET gate drive" below |
 | 1N4148 diode (second optional, in parallel) | Flyback across the solenoid, stripe toward +12V |
-| 2x HW-390 v2.0 capacitive sensors | Full-level detection, bare tips directly in the water, mounted in the printed cap at the same depth |
-| LM2596 buck converter | 12V to 5V, set and verified with a multimeter before connecting the Pro Micro |
+| 2x HW-390 v2.0 capacitive sensors | Full-level detection, bare tips directly in the water, mounted in the printed cap at the same depth. Powered at 3.3 V |
+| LM2596 buck converter | 12V to 5V into the board's VSYS; the board's own regulator makes 3.3 V. Set and verified with a multimeter before connecting the board |
 | 12V 1A supply | Feeds the valve and the buck |
-| External LED + resistor | Fault blink codes |
+| External LED + resistor | Fault/status blink codes |
 | 100uF cap on the 5V rail | Smooths switching noise for cleaner ADC readings |
-| Optional reset button | INPUT_PULLUP to GND |
+| 100nF cap from each sensor AOUT to GND (recommended) | The RP2040 ADC is noisier than an AVR's; these tame the analog lines |
+| Onboard BOOTSEL button | The user control button (start / abort / extend). No external button needed |
+| Onboard RESET button, or a momentary RUN-to-GND button on boards without one | Full device reset |
+
+## 3.3 V logic warning
+RP2040 GPIO are 3.3 V only and **not** 5 V tolerant. Nothing above 3.3 V may touch any GPIO. This drives three choices: the sensors run at 3.3 V, the board is powered through VSYS at 5 V (its onboard regulator makes the 3.3 V rail), and the MOSFET module must switch from a 3.3 V gate.
+
+## MOSFET gate drive (the one real gotcha of this switch)
+The old plan drove the common blue IRF520 module from a 5 V Pro Micro pin. RP2040 GPIO tops out at 3.3 V, and an IRF520 is specified for ~10 V gates: at 3.3 V it may not turn on at all, or may sit half-on and overheat. Use a logic-level module (IRLZ44N / IRL520 class), or bench-prove the existing one before trusting it: gate to 3.3 V, drain switching the actual solenoid at 12 V — it must pull in crisply and the FET must stay cool. If in doubt, replace the module.
+
+The module's onboard pull-down keeps the valve closed while the RP2040 boots, while its pins float during BOOTSEL/flashing, and on any brownout.
 
 ## Power and wiring
 - 12V supply goes to the MOSFET module input and the LM2596 input.
-- LM2596 5V output goes to the Pro Micro **VCC** pin (not RAW).
-- Sensors are powered from Pro Micro VCC (5V).
-- All grounds common: supply, buck, MOSFET module, Pro Micro, sensors.
-- Never connect USB while the buck is powering the board. Program over USB with the buck disconnected.
+- LM2596 5V output goes to the Pico **VSYS** pin (pin 39). The Pico's onboard regulator produces 3.3 V for the chip and the **3V3(OUT)** pin (pin 36).
+- Sensors are powered from **3V3(OUT)**. At 3.3 V their absolute readings differ from a 5 V build, but the firmware only ever compares against a per-fill dry baseline, so behavior is unaffected.
+- All grounds common: supply, buck, MOSFET module, board, sensors.
+- On the Pico, VBUS is diode-OR'd with VSYS, so USB and the buck **can** be connected at the same time — useful for serial logging during a real fill. (This was forbidden on the Pro Micro; it no longer is.) Still verify the buck output with a multimeter before the board's first power-up.
 - The valve is normally closed, so power loss closes it.
 
 ## Proposed pins (agent should justify any changes)
 | Pin | Connection |
 |---|---|
-| A0 | Sensor 1 AOUT |
-| A1 | Sensor 2 AOUT |
-| D10 | MOSFET TRIG (HIGH = open) |
-| D9 | Fault LED |
-| D8 | Reset button (optional) |
-| D0/D1/D2/D3 | Avoid |
+| GP26 / ADC0 | Sensor 1 AOUT |
+| GP27 / ADC1 | Sensor 2 AOUT |
+| GP15 | MOSFET TRIG (HIGH = open) |
+| GP14 | Fault/status LED |
+| GP25 | Onboard LED, mirrors the external LED (free debugging) |
+| BOOTSEL | Control button (start/abort/extend). The arduino-pico core reads it with `pinMode`/`digitalRead`; it cannot enter the bootloader unless RESET is held at the same time |
+
+Avoid / keep free:
+- **GP29 / ADC3** — wired to the Pico's VSYS divider; reads garbage on this board.
+- **GP23 / GP24** — Pico SMPS-mode and VBUS-sense lines.
+- **GP0 / GP1** — reserved for a debug UART during bring-up.
 
 The agent should give a short table of every pin it chose, what is connected, and why, before writing code.
 
 ## Sensor behavior
 - Analog: **high = dry, low = wet**. Only the tip is covered at full level, so the change will be partial.
-- Average 16 to 32 samples per reading.
+- The RP2040 ADC is 12-bit (0-4095) at 3.3 V and noisier than an AVR's: average **32** samples per reading (16 minimum).
 - Re-read a dry baseline per sensor at the start of every fill. Trip when the reading drops a set amount below baseline, not at a fixed value.
 - Debounce: 5 to 10 consecutive averaged readings past the threshold before a sensor counts as tripped.
 - **TBD from real readings:** trip drop, plausible baseline range, debounce count. All are named constants at the top of the file.
@@ -66,11 +81,12 @@ The agent should give a short table of every pin it chose, what is connected, an
 
 ## Safety requirements
 - Valve pin set LOW as the very first line of setup().
+- Enable the RP2040 hardware watchdog (~8s), fed every loop pass. A hung board resets; setup()'s first line then closes the valve, and the device comes back idle waiting for a human start — it never auto-restarts a fill after any reset.
 - No blocking `delay()` in the fill loop. Use `millis()` timing written to survive rollover.
 - The timer cutoff must be close to the real fill time, not padded. A dead sensor should behave like the timer fallback, not overflow the jug.
 
 ## Implementation notes
-- Arduino framework, C/C++, single readable .ino file.
-- Do not assume USB and the buck are connected at the same time.
+- Arduino framework on the **arduino-pico (Earle Philhower) core**, C/C++, single readable .ino file.
+- The RP2040 has no EEPROM; if any state must survive power loss it goes to flash (the core offers EEPROM emulation). Whether any state is persisted is a behavioral decision.
+- USB and the buck may be connected simultaneously (see Power and wiring).
 - All tunable values are named constants at the top.
-
