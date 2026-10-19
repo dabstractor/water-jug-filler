@@ -926,6 +926,22 @@ static uint16_t s_adcAvg1 = 0;      // latest emitted averaged pair (counts) —
 static uint16_t s_adcAvg2 = 0;      //   handoff P1.M6.T2.S1 routes into FillEngine
 // ---- end ADC sampling service state (used by loop, kept by P1.M6.T2.S1) ----
 
+// ---- External LED driver state (P1.M5.T2.S1) ----
+// Hardware side of LED signaling (PRD §4): the external green LED on GP14 is
+// AUTHORITATIVE — the onboard WS2812 (P1.M5.T3.S1) only mirrors it. Wiring
+// (PRD §2.1): GP14 -> 330R -> LED anode, cathode -> GND, so HIGH = on; the
+// pin sources ~8 mA at 3.3 V, ample within GPIO drive strength. setup() already
+// did pinMode(PIN_LED, OUTPUT) + LOW (P1.M1.T1.S2 skeleton — LED dark at boot);
+// the engine defaults to Off, so IDLE stays dark until the fill engine
+// (P1.M6.T1.S2, routed by P1.M6.T2.S1) selects a mode. This driver is
+// mode-agnostic: it only writes tick()'s level each pass — pattern semantics
+// (Solid through CONFIRM, DonePulse forever until acknowledged per PRD §11,
+// FaultBlink groups per §7) all live in the pure engine, native-tested by
+// P1.M5.T1.S1. Shared instance: the WS2812 mirror reads mode()/ledOn from the
+// SAME engine — one tick per pass, never two.
+static LedPatternEngine s_led;  // pattern engine instance; RAM state only (PRD §3)
+// ---- end External LED driver state (used by loop, shared with P1.M5.T3.S1) ----
+
 void setup() {
   digitalWrite(PIN_VALVE, LOW);   // LINE 1 — PRD §10: valve closed before all else
   pinMode(PIN_VALVE, OUTPUT);     // drive the pre-latched LOW (glitch-free)
@@ -987,9 +1003,23 @@ void loop() {
     logLine("S1=%u S2=%u", (unsigned)s_adcAvg1, (unsigned)s_adcAvg2);
   }
   // ---- end ADC sample / aggregate / commissioning log ----
-  // P1.M6.T2.S1 fills the loop below this line (fill engine routing, LED, event
-  // logs via logLine; ADC sampling landed in P1.M3.T1.S2). Nothing may ever be
-  // inserted above watchdog_update().
+  // ---- External LED drive (P1.M5.T2.S1) — the loop's LED stage ----
+  // ONE tick of the pattern engine per pass, ONE pin write (PRD §10: nothing
+  // here may block; the engine is a pure function of nowMs). Uses the loop's
+  // single nowMs snapshot — never a second millis() read. ledOn is the shared
+  // level: the WS2812 mirror (P1.M5.T3.S1) writes its color BESIDE this
+  // digitalWrite using the SAME ledOn — never re-tick. The stage sits LAST so
+  // the fill engine (P1.M6.T2.S1, routing lands ABOVE this stage) can setMode()
+  // and the same pass's write already reflects it — the engine's lazy phase
+  // anchor makes same-pass setMode->tick exact (P1.M5.T1.S1 design).
+  const bool ledOn = s_led.tick(nowMs);          // advance pattern, get level
+  digitalWrite(PIN_LED, ledOn ? HIGH : LOW);     // GP14 -> 330R -> LED -> GND
+  // ---- end External LED drive ----
+  // P1.M6.T2.S1 fills the loop below this line (fill engine routing + event
+  // logs via logLine — INSERT ABOVE the External LED drive so mode selection
+  // precedes s_led.tick in the same pass; ADC sampling landed in P1.M3.T1.S2,
+  // LED drive in P1.M5.T2.S1). Nothing may ever be inserted above
+  // watchdog_update().
 }
 
 #endif  // ARDUINO

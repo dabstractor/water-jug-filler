@@ -349,7 +349,7 @@
           "type": "Milestone",
           "id": "P1.M5",
           "title": "LED signaling: pattern engine and drivers",
-          "status": "Planned",
+          "status": "Researching",
           "description": "The section 4 LED contract as a pure time-driven pattern engine plus two drivers: the authoritative external green LED on GP14 and the config-gated WS2812 mirror on GP16.",
           "tasks": [
             {
@@ -382,14 +382,14 @@
               "type": "Task",
               "id": "P1.M5.T2",
               "title": "External green LED driver (GP14)",
-              "status": "Researching",
+              "status": "Complete",
               "description": "The authoritative indicator: GP14 through 330 ohm to the super-bright green LED.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M5.T2.S1",
                   "title": "Drive GP14 from the pattern engine each loop pass",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M5.T1.S1",
@@ -409,14 +409,14 @@
               "type": "Task",
               "id": "P1.M5.T3",
               "title": "WS2812 onboard mirror (GP16, config-gated)",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Optional color-matched mirror on the onboard RGB LED, capped at brightness 60/255 per the power budget.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M5.T3.S1",
                   "title": "Config-gated WS2812 mirror with color map and brightness cap",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M5.T1.S1",
