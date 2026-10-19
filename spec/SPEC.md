@@ -6,14 +6,13 @@ Fill a 4 gallon jug with RO water and shut the valve automatically when the wate
 ## 1. Hardware / BOM
 | Part | Role |
 |---|---|
-| Waveshare RP2040-Zero (RP2040, 2MB flash, 3.3 V logic) | Controller. Onboard BOOT + RESET buttons (both used). Onboard WS2812 RGB LED on GP16. Exposed pins: GP0–GP15 and GP26–GP29. **GP16–GP25 exist only as microscopic back pads — treat as unusable.** |
+| Waveshare RP2040-Zero (RP2040, 2MB flash, 3.3 V logic) | Controller. Onboard BOOT + RESET buttons (both used). Onboard WS2812 RGB LED on GP16 — the sole status/fault indicator (§4). Exposed pins: GP0–GP15 and GP26–GP29. **GP16–GP25 exist only as microscopic back pads — treat as unusable.** |
 | FPD180A solenoid, 12V, ~400mA, normally closed | Water valve. NC = power loss closes it |
 | Logic-level MOSFET module (IRLZ44N / IRL520 class) | Switches the valve from a 3.3 V gate — see §2. Gate pull-down is on the module |
 | 1N4148 diode (second optional, in parallel) | Flyback across the solenoid, stripe toward +12V |
 | 2x HW-390 v2.0 capacitive sensors | Full-level detection, bare tips in the water at the same depth in the printed cap. Powered at **3.3 V** |
 | LM2596 buck converter | 12V→5V into the board's 5V pin; the board's LDO makes 3.3 V. Set and verify with a multimeter before connecting the board |
 | 12V 1A supply | Feeds the valve and the buck |
-| External LED, **super-bright green**, 5mm + ~330Ω | Status/fault indicator (green = success, per §4). Brightness matters: the "done" signal must grab attention |
 | 100uF electrolytic on the 5V rail | Decoupling for cleaner ADC readings |
 | 100nF ceramic from each sensor AOUT to GND | Tames the analog lines into the RP2040 ADC |
 
@@ -24,20 +23,19 @@ Fill a 4 gallon jug with RO water and shut the valve automatically when the wate
 | **GP26 / ADC0** | Sensor 1 AOUT | GP26–GP29 are the RP2040's only ADC-capable pins (ADC0–ADC3) |
 | **GP27 / ADC1** | Sensor 2 AOUT | |
 | **GP15** | MOSFET module TRIG/SIG | HIGH = valve open |
-| **GP14** | External LED anode (via 330Ω; cathode → GND) | |
 | **3V3 pin** | Sensor VCC (both sensors) | Never 5V — GPIO/ADC are 3.3V-only, not 5V tolerant |
 | **5V pin** | LM2596 5V output | Board makes its own 3.3V |
 | **GND** | All grounds common: 12V supply, buck, MOSFET module, sensors | |
 | BOOTSEL (onboard, no wiring) | Control button | Read in firmware via arduino-pico's `BOOTSEL` pseudo-pin (`pinMode(BOOTSEL, INPUT_PULLUP)`, `digitalRead`). Cannot enter bootloader unless RESET is held too |
 | RESET (onboard, no wiring) | Full device reset | |
-| GP16 (onboard, no wiring) | WS2812 RGB LED mirror | Firmware only; optional, behind a config flag |
+| GP16 (onboard, no wiring) | WS2812 RGB LED — sole status/fault indicator | Driven in firmware via a NeoPixel library (e.g. Adafruit_NeoPixel, supported on arduino-pico) |
 
-Spares: GP28/GP29 (ADC2/ADC3) and GP2–GP13, all unwired. Reserved: GP0/GP1 (UART0 TX/RX) for debug serial. Unusable: GP16–GP25 (back pads).
+Spares: GP28/GP29 (ADC2/ADC3), GP14, and GP2–GP13, all unwired. Reserved: GP0/GP1 (UART0 TX/RX) for debug serial. Unusable: GP16–GP25 (back pads).
 
 ### 2.2 Power path & cautions
 - 12V → MOSFET module power-input terminals and LM2596 input. Buck 5V → board **5V** pin. Sensors from **3V3**.
 - **Never connect USB while the buck is powering the board.** On the RP2040-Zero the 5V pin (VSYS) ties directly to USB VBUS with no diode: connecting both backfeeds one supply into the other (PC USB port damage risk). Bench/commissioning runs are USB-powered with the buck disconnected; in service the board runs from the buck with USB unplugged. Program over USB with the buck disconnected.
-- The buck's 5V feeds the board's LDO; total 3.3V load (board + sensors + capped-brightness WS2812) is well within it. Keep WS2812 brightness ≤ ~60/255 in firmware. Verify the buck output with a multimeter (4.9–5.1V) before the board's first power-up.
+- The buck's 5V feeds the board's LDO; total 3.3V load (board + sensors + the single onboard WS2812, ≤60mA at full white) is well within it. Verify the buck output with a multimeter (4.9–5.1V) before the board's first power-up.
 - **MOSFET module wiring (two-terminal-block module):** 12V+ / 12V− → the module's power-input block; solenoid wires → the switched output block; header TRIG/PWM → GP15; header GND → GND. Confirm input vs output blocks from the silkscreen and a multimeter before connecting the solenoid — the output must be dead until TRIG is driven high.
 - **MOSFET gate drive requirement:** an IRF520-class "blue module" is NOT guaranteed on at a 3.3V gate. Use a logic-level module, or qualify the module in use by test: with TRIG at 3.3V and the real solenoid at 12V, the module's indicator LED must light, the valve must pull in crisply, and the FET must stay cool.
 - The module's onboard gate pull-down keeps the valve closed while pins float during boot/BOOTSel/flashing/brownout.
@@ -66,8 +64,6 @@ MOSFET header GND ── GND bus
 GP26 ── sensor 1 AOUT ──(100nF "104" to GND)
 GP27 ── sensor 2 AOUT ──(100nF "104" to GND)
 GND bus ── sensor 1 GND, sensor 2 GND        (DOUT pins: nothing)
-
-GP14 ── 330Ω ── LED anode (long leg)      LED cathode (short/flat) ── GND bus
 ```
 
 Numbered connections:
@@ -94,11 +90,9 @@ Numbered connections:
 | 19 | 100nF #1 ("104") | Sensor 1 AOUT ↔ GND |
 | 20 | 100nF #2 ("104") | Sensor 2 AOUT ↔ GND |
 | 21 | Sensor DOUT pins (both) | Unconnected |
-| 22 | GP14 → 330Ω | LED anode (long leg) |
-| 23 | LED cathode (short leg, flat side) | GND bus |
-| 24 | Board pins in total | GP26, GP27, GP15, GP14, 3V3, 5V, GND — all others unconnected |
+| 22 | Board pins wired, total | GP26, GP27, GP15, 3V3, 5V, GND — all others unconnected (the WS2812 on GP16 is onboard; no wiring) |
 
-Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the supply when the valve opens); 100µF stripe to GND (reversed = vents); 100nF and 330Ω have no polarity; the solenoid itself is polarity-insensitive — the flyback diode defines the "+" lead. Any board GND pin may be used (same net). Verify the module's IN vs OUT blocks from silkscreen and multimeter before connecting the solenoid: OUT must be dead until TRIG is driven.
+Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the supply when the valve opens); 100µF stripe to GND (reversed = vents); 100nF have no polarity; the solenoid itself is polarity-insensitive — the flyback diode defines the "+" lead. Any board GND pin may be used (same net). Verify the module's IN vs OUT blocks from silkscreen and multimeter before connecting the solenoid: OUT must be dead until TRIG is driven.
 
 ## 3. Firmware platform
 - **arduino-pico (Earle Philhower) core**, board selection "Waveshare RP2040-Zero". C/C++. Two files: the sketch (`.ino` or `src/main.cpp`) + **`config.h`** holding every constant in §8.
@@ -107,17 +101,17 @@ Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the s
 - **No persistence of any kind.** No EEPROM, no flash writes. All state is RAM; any reset starts fresh (see §5.3).
 
 ## 4. States and LED contract
-Five states. The external green LED is authoritative; the onboard WS2812 (GP16) mirrors with matching colors when enabled in config.
+Five states. The onboard WS2812 RGB LED (GP16) is the **sole** status/fault indicator — there is no external LED. Driven in firmware via a NeoPixel library; colors are config constants.
 
-| State | Meaning | External LED | WS2812 mirror |
-|---|---|---|---|
-| **IDLE** | Powered, waiting for BOOT press | Off | Off |
-| **FILLING** | Valve open, timer running, watching sensors | Solid on | Blue solid |
-| **CONFIRM** | First sensor tripped, valve closed, waiting out the confirm window for the second sensor | Solid on (continues) | Blue solid |
-| **DONE** | Fill complete; attention pattern until acknowledged | **Triple-pulse attention blink**: 3x (on 200ms / off 200ms), then off 1000ms, repeat | Same pattern in green |
-| **FAULT** | Latched fault; see §7 | Blink-code groups (§7) | Same pattern in red |
+| State | Meaning | WS2812 output |
+|---|---|---|
+| **IDLE** | Powered, waiting for BOOT press | Off |
+| **FILLING** | Valve open, timer running, watching sensors | Solid blue |
+| **CONFIRM** | First sensor tripped, valve closed, waiting out the confirm window for the second sensor | Solid blue (continues) |
+| **DONE** | Fill complete; attention pattern until acknowledged | **Green triple-pulse attention blink**: 3x (on 200ms / off 200ms), then off 1000ms, repeat |
+| **FAULT** | Latched fault; see §7 | Red blink-code groups (§7) |
 
-Transient ack: a +5min long-press during FILLING blinks the LED 3x quickly (on 100ms / off 100ms), then resumes solid.
+Transient ack: a +5min long-press during FILLING flashes white 3x quickly (on 100ms / off 100ms), then resumes solid blue.
 
 ## 5. Button & reset semantics
 ### 5.1 BOOT button — acts on RELEASE
@@ -178,7 +172,7 @@ Physics: the tank refills fast at first (low back-pressure) and progressively sl
 | 2 | Sensor 2 bad (same) |
 | 3 | Timer fired, no trip |
 
-- Fault cadence: N x (on 250ms / off 250ms), off 2000ms, repeat.
+- Fault cadence (red, WS2812): N x (on 250ms / off 250ms), off 2000ms, repeat.
 - **Faults latch.** Cleared only by RESET or power cycle (which also clears tank history — next fill defaults to 30 min). BOOT is ignored while faulted.
 - While faulted, the valve refuses to open.
 
@@ -189,7 +183,6 @@ All pins, timings, thresholds, and patterns live in `config.h`, grouped, comment
 // ---- Pins (RP2040-Zero) ----
 PIN_SENSOR1 = GP26; PIN_SENSOR2 = GP27;   // AOUT, ADC0/ADC1
 PIN_VALVE   = GP15;                        // HIGH = open
-PIN_LED     = GP14;                        // external green LED
 
 // ---- Button ----
 BUTTON_LONG_PRESS_MS = 1000; BUTTON_DEBOUNCE_MS = 40;
@@ -208,17 +201,19 @@ BASELINE_SETTLE_MS = 2000;
 BASELINE_MIN = 2000; BASELINE_MAX = 4050;  // plausible dry range, 12-bit counts
 TRIP_DROP_COUNTS = 350; DEBOUNCE_COUNT = 8;
 
-// ---- LED patterns ----
+// ---- Onboard WS2812 status LED (GP16) ----
+NEO_PIN = 16;                              // onboard RGB LED, sole indicator
+RGB_BRIGHTNESS = 180;                      // single pixel ≤60mA at full white
+COLOR_FILLING = (0,0,255); COLOR_DONE = (0,255,0); COLOR_FAULT = (255,0,0); COLOR_ACK = (255,255,255);
 DONE_PULSE_{ON,OFF}_MS = 200; DONE_PULSE_COUNT = 3; DONE_GAP_MS = 1000;
 FAULT_BLINK_MS = 250; FAULT_PAUSE_MS = 2000; ACK_BLINK_MS = 100;
-USE_ONBOARD_RGB = true; RGB_BRIGHTNESS = 60;   // WS2812 on GP16, ≤60/255
 
 // ---- Platform ----
 SERIAL_BAUD = 115200; WATCHDOG_TIMEOUT_S = 8;
 ```
 
 ## 9. Commissioning & calibration
-1. **Dry bench check:** flash the firmware; verify IDLE state and BOOT press logging (BOOTSEL reads). Dry-fire the valve with short clicks (<5s each to avoid overheating the solenoid).
+1. **Dry bench check:** flash the firmware; verify IDLE state (LED off), BOOT press logging (BOOTSEL reads), and that the WS2812 renders the §4 patterns. Dry-fire the valve with short clicks (<5s each to avoid overheating the solenoid).
 2. **Power rails:** bench sessions are USB-powered with the buck disconnected from the board (12V may feed the MOSFET module alone for valve tests). With the buck powering the 5V pin (USB unplugged), confirm 4.9–5.1V at the 5V pin. Never USB and buck together (§2.2).
 3. **Sensor calibration (sets the provisional constants above):** sensors in open air → log dry baselines (expect ~3000–3900 counts at 3.3V); tips submerged to mount depth → log wet values. Set `BASELINE_MIN/MAX` around the observed dry range and `TRIP_DROP_COUNTS` at roughly half the observed dry→wet delta.
 4. **Dry-run flows 1 and 2** (§5.2) with sensors dipped in a cup by hand.
