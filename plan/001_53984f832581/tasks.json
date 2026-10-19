@@ -286,7 +286,7 @@
           "type": "Milestone",
           "id": "P1.M4",
           "title": "Timer model: recovery clock and concave backstop",
-          "status": "Researching",
+          "status": "Complete",
           "description": "The section 6 backstop brain: RAM-only recovery clock, piecewise-linear concave table lookup, fresh-boot default, and +5-min stacking extensions on the active fill only.",
           "tasks": [
             {
@@ -318,14 +318,14 @@
               "type": "Task",
               "id": "P1.M4.T2",
               "title": "Recovery clock and fill deadline management",
-              "status": "Researching",
+              "status": "Complete",
               "description": "RAM-only tank history: reference at last valve-close, fresh-boot default, once-per-fill computation, stackable +5 extensions.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M4.T2.S1",
                   "title": "RecoveryClock + FillDeadline: fresh-boot default, valve-open anchor, stacking +5 (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M4.T1.S1",
@@ -356,14 +356,14 @@
               "type": "Task",
               "id": "P1.M5.T1",
               "title": "Non-blocking LED pattern engine (pure)",
-              "status": "Planned",
+              "status": "Researching",
               "description": "One engine producing every pattern in sections 4 and 7 from an injected clock — solid, off, done triple-pulse, fault blink groups, transient ack overlay.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M5.T1.S1",
                   "title": "LedPatternEngine: Solid/Off/DonePulse/FaultBlink(n)/AckBlink overlay (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M1.T2.S1"

@@ -609,6 +609,106 @@ uint32_t backstopMinutes(uint32_t recoveryMin) {
 }
 // ===== end backstop interpolation (consumed by P1.M4.T2.S1, P1.M6.T1.S2) =====
 
+// ===================== Recovery clock & fill deadline (P1.M4.T2.S1) =====================
+// Timer-model STATE (PRD §6): wall-clock recovery between fills, and the
+// per-fill valve-open budget. RAM only — NO persistence (PRD §3): any reset
+// re-constructs these objects, which clears history, so the next fill uses
+// FRESH_BOOT_BACKSTOP_MIN (PRD §5.3 "tank history cleared", §6.1). That is
+// the entire §5.3 story for this state — documented, not implemented.
+//
+// RecoveryClock (PRD §6.1): the reference point is the moment the previous
+// fill's VALVE CLOSED — whatever ended it (done, abort or fault): the fill
+// engine (P1.M6.T1.S2) calls recordFillEnd() at that instant for all three.
+// Recovery for a new fill = wall-clock ms since that reference, wrap-safe
+// via elapsedMs (P1.M1.T2.S1). Abort restarts the clock exactly like a
+// normal fill end — same call, same meaning.
+//
+// FillDeadline (PRD §6 preamble + §6.2): the backstop bounds how long the
+// VALVE may stay open, so the deadline is ANCHORED at the valve-open
+// instant, NOT at the button press (the 2 s baseline settle precedes valve
+// open). The budget MINUTES are computed ONCE at fill start (button press):
+//     no history  -> FRESH_BOOT_BACKSTOP_MIN (assume full tank: fast fill)
+//     has history -> backstopMinutes(recoveryMs / 60000)   (P1.M4.T1.S1)
+// Sub-minute recovery truncates to whole minutes (house integer style; the
+// table itself is minute-granular). A long-press +5 (PLUS5_MIN, PRD §5.1,
+// FILLING only) extends the ACTIVE fill's deadline only — stacks,
+// repeatable — and never touches the table or the recovery clock.
+
+class RecoveryClock {
+public:
+    // Every fill end — done, abort or fault: whatever closed the valve.
+    void recordFillEnd(uint32_t nowMs) {
+        lastFillEndMs_ = nowMs;
+        hasHistory_ = true;
+    }
+
+    // False until the first recordFillEnd() — i.e. on every fresh boot.
+    bool hasHistory() const { return hasHistory_; }
+
+    // Wall-clock ms since the previous fill's valve closed (wrap-safe).
+    // Caller MUST check hasHistory() first: with no history the return is
+    // meaningless — use FRESH_BOOT_BACKSTOP_MIN, never this value.
+    uint32_t recoveryMs(uint32_t nowMs) const {
+        return elapsedMs(nowMs, lastFillEndMs_);
+    }
+
+private:
+    bool hasHistory_ = false;    // RAM only: cleared by any reset (PRD §5.3)
+    uint32_t lastFillEndMs_ = 0;
+};
+
+class FillDeadline {
+public:
+    // Compute the budget ONCE at fill start (button press, PRD §6.2) and
+    // snapshot the log inputs (recovery, table result — PRD §3 log line).
+    void beginFill(const RecoveryClock& clock, uint32_t nowMs) {
+        freshBoot_ = !clock.hasHistory();
+        recoveryMsAtStart_ = freshBoot_ ? 0 : clock.recoveryMs(nowMs);
+        tableMinutes_ = freshBoot_
+                            ? FRESH_BOOT_BACKSTOP_MIN
+                            : backstopMinutes(recoveryMsAtStart_ / 60000u);
+        budgetMs_ = (uint32_t)tableMinutes_ * 60000u;
+        anchored_ = false;  // valve not open yet — baseline settle comes first
+    }
+
+    // Fix the deadline origin at the VALVE-OPEN instant (PRD §6 preamble):
+    // the backstop bounds valve-open time, not button-press time.
+    void anchor(uint32_t valveOpenedAtMs) {
+        anchorMs_ = valveOpenedAtMs;
+        anchored_ = true;
+    }
+
+    // True once the valve-open budget — including every +5 extension — is
+    // used up. False until anchored(): the settle window runs no deadline.
+    // deadlineMs (anchor + budget) wraps naturally; deadlinePassed
+    // (P1.M1.T2.S1) is the rollover-safe comparison.
+    bool expired(uint32_t nowMs) const {
+        return anchored_ && deadlinePassed(nowMs, anchorMs_ + budgetMs_);
+    }
+
+    // Long-press +5 (PRD §5.1): stacks, repeatable, ACTIVE fill only.
+    // Valid before or after anchor() — the budget grows either way and the
+    // deadline (anchor + budget) follows.
+    void extend5() { budgetMs_ += (uint32_t)PLUS5_MIN * 60000u; }
+
+    // ---- log inputs for the backstop computation line (PRD §3) ----
+    bool freshBoot() const { return freshBoot_; }
+    uint32_t recoveryMsAtStart() const { return recoveryMsAtStart_; }
+    uint32_t tableMinutes() const { return tableMinutes_; }        // grant at fill start
+    uint32_t budgetMinutes() const { return budgetMs_ / 60000u; }  // incl. +5 stacks
+    uint32_t deadlineMs() const { return anchorMs_ + budgetMs_; }  // wraps naturally
+    bool anchored() const { return anchored_; }
+
+private:
+    bool freshBoot_ = true;
+    bool anchored_ = false;
+    uint32_t recoveryMsAtStart_ = 0;
+    uint32_t tableMinutes_ = 0;
+    uint32_t budgetMs_ = 0;
+    uint32_t anchorMs_ = 0;
+};
+// ===== end recovery clock & fill deadline (consumed by P1.M6.T1.S2, P1.M6.T2.S1) =====
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 
