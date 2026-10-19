@@ -262,6 +262,130 @@ uint16_t medianOf(uint16_t* values, size_t n) {
 }
 // ========= end reading aggregator (consumed by P1.M3.T2.S1, P1.M3.T3.S1/S2, P1.M6.T1.S2) =========
 
+// ===================== Baseline capture + plausibility gate (P1.M3.T2.S1) =====================
+// Sensor chain stage 2 (PRD §7.1), pure: on fill start, SETTLE for
+// BASELINE_SETTLE_MS (2000 ms) with the valve still closed (settle runs inside
+// FILLING, valve LOW — arch §3.1), collecting NOTHING; then collect exactly
+// READINGS_PER_SENSOR (5) averaged reading pairs from the ReadingAggregator
+// stream (P1.M3.T1.S1) and finish with per-sensor dry baselines = the MEDIAN
+// of those 5 readings (breakdown point 50%: one wet splash or one wild spike
+// during capture cannot move the baseline) plus a plausibility verdict against
+// BASELINE_MIN..MAX (2000..4050 counts, 12-bit) — this also catches "jug
+// already full / tips wet" accidental starts (a wet sensor reads far below the
+// dry range, PRD §9.3) and a never-sampled sensor (aggregator emits 0 —
+// out-of-range by design, P1.M3.T1.S1).
+//
+// Verdicts are the fill gate (PRD §7.1): if either sensor is not Ok, the fill
+// engine (P1.M6.T1.S2) faults that sensor (fault code = sensor index + 1,
+// P1.M6.T1.S3) and REFUSES to open the valve. This class only REPORTS — it
+// never touches hardware.
+//
+// Caller contract (P1.M6.T1.S2, driven once per loop pass by P1.M6.T2.S1;
+// nowMs non-decreasing, same clock domain as all services):
+//   baseline.begin(fillStartMs);                    // at fill start, valve closed
+//   if (agg.readingDue(nowMs)) {
+//       agg.takeReading(nowMs, a1, a2);
+//       baseline.addReading(nowMs, a1, a2);         // total: dropped until settle elapses
+//   }
+//   if (baseline.done()) { /* route verdict()/baseline() once */ }
+// addReading is time-gated ONLY by the settle: it does not check the reading
+// cadence (the aggregator owns cadence) and is legal to call on every emitted
+// pair. All timing composes elapsedMs (rollover-safe, P1.M1.T2.S1).
+//
+// Abort during settle is the FSM's business (P1.M6.T1.S2): there is NO cancel
+// method by design — the FSM simply stops calling; begin() resets all state
+// for the next fill. Accessors are meaningful once done(); before that
+// baseline() is 0 and verdict() is TooLow — fail-safe: verdict(sensor) ALWAYS
+// equals the classification of baseline(sensor) under BASELINE_MIN..MAX, and
+// 0 < BASELINE_MIN, so a premature read can never look Ok.
+class BaselineCapture {
+public:
+    // Per-sensor plausibility of the captured dry baseline (PRD §7.1).
+    enum Verdict : uint8_t { Ok = 0, TooLow = 1, TooHigh = 2 };
+
+    // Averaged readings medians per sensor — task contract (P1.M3.T2.S1),
+    // NOT a §8 tunable. Odd on purpose: the median of 5 is the pure middle
+    // element (no even-pair truncation); 5 x 100 ms = 500 ms of capture.
+    static constexpr uint8_t READINGS_PER_SENSOR = 5;
+
+    BaselineCapture()
+        : phase_(Phase::Settle), startMs_(0), taken_(0),
+          baseline_{0, 0}, verdict_{Verdict::TooLow, Verdict::TooLow} {}
+
+    // Start a new capture at `nowMs` (the fill-start instant). Resets everything.
+    void begin(uint32_t nowMs) {
+        phase_ = Phase::Settle;
+        startMs_ = nowMs;
+        taken_ = 0;
+        baseline_[0] = 0;
+        baseline_[1] = 0;
+        verdict_[0] = Verdict::TooLow;  // fail-safe defaults: baseline 0
+        verdict_[1] = Verdict::TooLow;  // classifies below BASELINE_MIN
+    }
+
+    // Feed one emitted averaged pair. TOTAL: during Settle the pair is DROPPED
+    // unless BASELINE_SETTLE_MS has elapsed since begin() (inclusive at exactly
+    // 2000 — house rule); the first accepted pair flips to Collect. On the
+    // READINGS_PER_SENSOR-th accepted pair the medians + verdicts are computed
+    // once and the capture is Done — later pairs are ignored.
+    void addReading(uint32_t nowMs, uint16_t avg1, uint16_t avg2) {
+        if (phase_ == Phase::Done) return;  // stable after finish
+        if (phase_ == Phase::Settle) {
+            if (elapsedMs(nowMs, startMs_) < BASELINE_SETTLE_MS) return;
+            phase_ = Phase::Collect;  // settle elapsed — start collecting HERE
+        }
+        readings_[0][taken_] = avg1;
+        readings_[1][taken_] = avg2;
+        if (++taken_ >= READINGS_PER_SENSOR) {
+            // medianOf sorts each buffer ascending in place — fine: the raw
+            // order is never needed again once the medians are taken.
+            baseline_[0] = medianOf(readings_[0], READINGS_PER_SENSOR);
+            baseline_[1] = medianOf(readings_[1], READINGS_PER_SENSOR);
+            verdict_[0] = classify(baseline_[0]);
+            verdict_[1] = classify(baseline_[1]);
+            phase_ = Phase::Done;
+        }
+    }
+
+    // True iff the capture finished (READINGS_PER_SENSOR pairs collected
+    // post-settle). The FSM's only poll; verdicts/baselines gate on this.
+    bool done() const { return phase_ == Phase::Done; }
+
+    // Captured dry baseline (counts) for `sensor` (0 == PIN_SENSOR1 == fault
+    // code 1, 1 == PIN_SENSOR2 == fault code 2). 0 until done() or for an
+    // out-of-domain index — consumers treat 0 as out-of-range (aggregator
+    // convention, P1.M3.T1.S1).
+    uint16_t baseline(uint8_t sensor) const {
+        return (sensor < ReadingAggregator::SENSOR_COUNT) ? baseline_[sensor] : 0;
+    }
+
+    // Plausibility verdict for `sensor`. TooLow until done() / for an
+    // out-of-domain index — fail-safe: verdict(sensor) ALWAYS equals the
+    // classification of baseline(sensor), and 0 < BASELINE_MIN.
+    Verdict verdict(uint8_t sensor) const {
+        return (sensor < ReadingAggregator::SENSOR_COUNT) ? verdict_[sensor]
+                                                          : Verdict::TooLow;
+    }
+
+private:
+    enum Phase : uint8_t { Settle = 0, Collect = 1, Done = 2 };
+
+    // PRD §7.1 plausibility gate: bounds INCLUSIVE (2000 and 4050 are Ok).
+    static Verdict classify(uint16_t v) {
+        if (v < BASELINE_MIN) return Verdict::TooLow;
+        if (v > BASELINE_MAX) return Verdict::TooHigh;
+        return Verdict::Ok;
+    }
+
+    Phase     phase_;       // Settle -> Collect -> Done (one-way)
+    uint32_t  startMs_;     // begin() instant — settle anchor
+    uint8_t   taken_;       // accepted pairs so far (0..READINGS_PER_SENSOR)
+    uint16_t  readings_[ReadingAggregator::SENSOR_COUNT][READINGS_PER_SENSOR];  // capture buffers / median scratch (20 B)
+    uint16_t  baseline_[ReadingAggregator::SENSOR_COUNT];  // medians, valid at Done
+    Verdict   verdict_[ReadingAggregator::SENSOR_COUNT];   // classifications, valid at Done
+};
+// ========= end baseline capture (consumed by P1.M3.T3.S1, P1.M6.T1.S2, P1.M6.T1.S3) =========
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 

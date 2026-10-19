@@ -219,14 +219,14 @@
               "type": "Task",
               "id": "P1.M3.T2",
               "title": "Baseline capture and plausibility gate",
-              "status": "Researching",
+              "status": "Complete",
               "description": "The section 7.1 pre-valve gate: settle 2 s, median-of-averaged dry baselines, range check, refuse-to-open on failure.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M3.T2.S1",
                   "title": "BaselineCapture: 2s settle, median-of-averages, BASELINE_MIN..MAX check (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M3.T1.S1"
@@ -251,7 +251,7 @@
                   "type": "Subtask",
                   "id": "P1.M3.T3.S1",
                   "title": "TripDetector: baseline-350 for 8 consecutive readings (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M3.T2.S1"
