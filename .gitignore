@@ -1,6 +1,7 @@
 # Build artifacts
 dist/
 build/
+.pio/
 
 # Dependencies
 node_modules/
