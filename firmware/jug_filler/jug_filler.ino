@@ -182,6 +182,25 @@ void logLine(const char* fmt, ...) {
     Serial.write('\n');
 }
 
+// ---- BOOTSEL button service (P1.M2.T2.S1) ----
+// Hardware side of the BOOT button: sample the __Bootsel bool object each loop
+// pass, feed the pure classifier (P1.M2.T1.S1), log each event with its hold
+// duration. NO pinMode for BOOTSEL — it is a global object, not a pin; the bool
+// conversion (true == pressed) momentarily floats the QSPI flash-CS line with
+// IRQs parked and the other core idled — designed for loop() use (external_deps
+// §1). Runtime reads can never enter the bootloader (entry needs BOOTSEL held
+// during RESET), matching PRD §2.1's intent.
+static ButtonClassifier s_button;      // classifier instance; RAM state only (PRD §3)
+static bool     s_btnPrevRaw = false;  // previous raw level (edge stamps below)
+static uint32_t s_btnRiseMs  = 0;      // stamp of raw press edge    (false -> true)
+static uint32_t s_btnFallMs  = 0;      // stamp of raw release edge  (true  -> false)
+// Hold-duration policy: the classifier's contract exposes events only (no hold
+// accessor, by design), so the wiring layer stamps the RAW edges itself. The
+// printed duration is raw first-edge to last-edge — within contact-bounce
+// (~tens of ms) of the classifier's theoretical hold. Diagnostic only: the
+// classifier stays the sole authority for debounce and short/long classification.
+// ---- end BOOTSEL button service state (used by loop, kept by P1.M6.T2.S1) ----
+
 void setup() {
   digitalWrite(PIN_VALVE, LOW);   // LINE 1 — PRD §10: valve closed before all else
   pinMode(PIN_VALVE, OUTPUT);     // drive the pre-latched LOW (glitch-free)
@@ -205,8 +224,23 @@ void setup() {
 
 void loop() {
   watchdog_update();   // FIRST STATEMENT — PRD §10: hang -> reset -> valve LOW -> IDLE
-  // P1.M6.T2.S1 fills the loop below this line (BOOTSEL poll, ADC, fill engine,
-  // LED, event logs via logLine). Nothing may ever be inserted above watchdog_update().
+  // ---- BOOTSEL poll (P1.M2.T2.S1) — the loop's second stage (arch loop order) ----
+  const uint32_t nowMs = millis();     // one clock snapshot per pass, shared downstream
+  const bool pressedRaw = BOOTSEL;     // __Bootsel operator bool(): true == pressed
+  if (pressedRaw != s_btnPrevRaw) {    // raw edge: stamp it (log-only bookkeeping)
+    if (pressedRaw) s_btnRiseMs = nowMs;
+    else            s_btnFallMs = nowMs;
+    s_btnPrevRaw = pressedRaw;
+  }
+  const ButtonClassifier::Event ev = s_button.update(nowMs, pressedRaw);
+  if (ev != ButtonClassifier::None) {  // fired exactly once, on accepted RELEASE
+    const uint32_t holdMs = elapsedMs(s_btnFallMs, s_btnRiseMs);  // wrap-safe
+    logLine("BTN %s %lums",
+            ev == ButtonClassifier::LongPress ? "long" : "short", holdMs);
+  }
+  // ---- end BOOTSEL poll ----
+  // P1.M6.T2.S1 fills the loop below this line (ADC, fill engine, LED, event
+  // logs via logLine). Nothing may ever be inserted above watchdog_update().
 }
 
 #endif  // ARDUINO
