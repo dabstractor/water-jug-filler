@@ -709,6 +709,160 @@ private:
 };
 // ===== end recovery clock & fill deadline (consumed by P1.M6.T1.S2, P1.M6.T2.S1) =====
 
+// ===================== LED pattern engine (P1.M5.T1.S1) =====================
+// The external-LED contract of PRD §4/§7 as ONE pure, non-blocking class:
+// it turns "what state are we in" into a boolean LED level at each loop
+// pass — zero delay(), zero hardware calls, injected clock (seam rules).
+// The drivers (P1.M5.T2.S1 GP14, P1.M5.T3.S1 WS2812 mirror) just write
+// tick()'s return; the fill engine (P1.M6.T1.S2) is the ONLY setMode
+// caller (item contract: modes are state, not user input).
+//
+// Pattern vocabulary (all cadences are config.h §8 constants, by name):
+//   Off        IDLE — always off.
+//   Solid      FILLING / CONFIRM — always on (PRD §4 "solid on (continues)").
+//   DonePulse  DONE — 3x (on 200 / off 200) then off 1000, repeat, FOREVER
+//              until acknowledged (no timeout, PRD §11).
+//   FaultBlink(n) FAULT — n x (on 250 / off 250) then off 2000, repeat; n is
+//              the fault code 1..3 (PRD §7 table). Latched like the fault.
+//   ack overlay one-shot transient (PRD §4/§5.1): on a +5 long-press during
+//              FILLING, 3x (on 100 / off 100) = exactly 600 ms, then the
+//              base pattern resumes EXACTLY where its phase is — the overlay
+//              only masks the output, it never disturbs the base phase, the
+//              valve, or the fill timing.
+//
+// Phase model: the active pattern is a PURE FUNCTION of elapsedMs(nowMs,
+// phaseStartMs_) % cycleLength — wrap-safe by construction (P1.M1.T2.S1;
+// true for any mode age < 2^32 ms ≈ 49.7 days). setMode() releases the
+// anchor; the NEXT tick() re-stamps it, so a mode change mid-pattern resets
+// the phase cleanly with no timestamp parameter (setMode runs inside the
+// engine step, tick runs in the same loop pass — sub-ms skew, invisible at
+// 100 ms cadences). Segment boundaries take effect AT the boundary instant
+// (house style, cf. deadlinePassed/readingDue): on-windows are [k*P, k*P+ON).
+//
+// Caller contract (P1.M5.T2.S1 / P1.M5.T3.S1, driven once per loop pass by
+// the LED stage; nowMs non-decreasing, same clock domain as all services):
+//   digitalWrite(PIN_LED, led.tick(nowMs));        // external green LED
+//   mirror: color from led.mode(), level from tick() // WS2812 (T3.S1)
+// The fill engine (P1.M6.T1.S2): setMode(Off/Solid/DonePulse), FAULT ->
+// setMode(FaultBlink, code); +5 long-press during FILLING -> triggerAck().
+class LedPatternEngine {
+public:
+    // Pattern vocabulary (PRD §4). Values are stable for logging/mirroring.
+    enum Mode : uint8_t { Off = 0, Solid = 1, DonePulse = 2, FaultBlink = 3 };
+
+    // PRD §4 transient ack: "blinks the LED 3x quickly". The count is a task
+    // contract, NOT a §8 tunable (only ACK_BLINK_MS is config) — precedent:
+    // BaselineCapture::READINGS_PER_SENSOR.
+    static constexpr uint8_t ACK_BLINK_COUNT = 3;
+
+    LedPatternEngine()
+        : mode_(Mode::Off), faultGroups_(1),
+          phaseStartMs_(0), phaseAnchored_(false),
+          ackStartMs_(0), ackAnchored_(false), ackActive_(false) {}
+
+    // Select the pattern. FaultBlink carries its group count n = fault code
+    // (1..3, PRD §7 table); every other mode ignores it. n == 0 clamps to 1
+    // (an empty group would read as "off forever" — the fail-safe direction
+    // for a latched fault is to blink, never to look dead). Releases the
+    // phase anchor: the next tick() stamps phaseStartMs_ and the new pattern
+    // starts from its t=0 (LED on for every blink pattern).
+    void setMode(Mode mode, uint8_t faultGroups = 1) {
+        mode_ = mode;
+        faultGroups_ = (faultGroups == 0) ? 1 : faultGroups;
+        phaseAnchored_ = false;
+    }
+
+    // Current pattern (WS2812 color map input, P1.M5.T3.S1: Off -> off,
+    // Solid -> blue, DonePulse -> green, FaultBlink -> red, PRD §4).
+    Mode mode() const { return mode_; }
+
+    // Group count of the active FaultBlink (fault code 1..3).
+    uint8_t faultGroups() const { return faultGroups_; }
+
+    // Start (or restart) the one-shot +5 ack overlay. Strictly time-bounded:
+    // exactly ACK_BLINK_COUNT blinks at ACK_BLINK_MS cadence, then the base
+    // pattern shows again. NOT cancelled by setMode — a state change during
+    // the 600 ms simply shows through afterwards.
+    void triggerAck() {
+        ackActive_ = true;
+        ackAnchored_ = false;
+    }
+
+    // True while the ack overlay is still masking the base pattern.
+    bool ackActive() const { return ackActive_; }
+
+    // Advance to nowMs, return the LED level for this instant. One call per
+    // loop pass. Lazily anchors the pattern phase (and the ack window) at
+    // the first tick after setMode/triggerAck — the anchor is the loop's
+    // nowMs snapshot, never millis() here (seam rule).
+    bool tick(uint32_t nowMs) {
+        if (!phaseAnchored_) {
+            phaseStartMs_ = nowMs;
+            phaseAnchored_ = true;
+        }
+        if (ackActive_) {
+            if (!ackAnchored_) {
+                ackStartMs_ = nowMs;
+                ackAnchored_ = true;
+            }
+            const uint32_t t = elapsedMs(nowMs, ackStartMs_);
+            if (t < ackSpanMs()) {
+                return (t % (2u * ACK_BLINK_MS)) < ACK_BLINK_MS;
+            }
+            ackActive_ = false;  // one-shot complete — fall through to base
+        }
+        return baseOn(nowMs);
+    }
+
+private:
+    // Base pattern level at nowMs. Elapsed-since-anchor mod cycle: the
+    // pattern repeats forever (DONE has no timeout, PRD §11; FAULT latches,
+    // PRD §7). Unsigned % on a true elapsed span is exact and wrap-safe.
+    bool baseOn(uint32_t nowMs) const {
+        switch (mode_) {
+            case Mode::Solid:
+                return true;
+            case Mode::DonePulse: {
+                // cycle: 3x(200 on/200 off)=1200, then 1000 off -> 2200.
+                const uint32_t period =
+                    DONE_PULSE_ON_MS + DONE_PULSE_OFF_MS;
+                const uint32_t groups =
+                    (uint32_t)DONE_PULSE_COUNT * period;
+                const uint32_t t =
+                    elapsedMs(nowMs, phaseStartMs_) % (groups + DONE_GAP_MS);
+                if (t >= groups) return false;  // the 1000 ms gap
+                return (t % period) < DONE_PULSE_ON_MS;
+            }
+            case Mode::FaultBlink: {
+                // cycle: n x(250 on/250 off)=n*500, then 2000 off.
+                const uint32_t period = 2u * FAULT_BLINK_MS;
+                const uint32_t groups = (uint32_t)faultGroups_ * period;
+                const uint32_t t =
+                    elapsedMs(nowMs, phaseStartMs_) % (groups + FAULT_PAUSE_MS);
+                if (t >= groups) return false;  // the 2000 ms pause
+                return (t % period) < FAULT_BLINK_MS;
+            }
+            case Mode::Off:
+            default:
+                return false;
+        }
+    }
+
+    // Total ack overlay width: 3 blinks x (100 on + 100 off) = 600 ms.
+    static constexpr uint32_t ackSpanMs() {
+        return (uint32_t)ACK_BLINK_COUNT * 2u * ACK_BLINK_MS;
+    }
+
+    Mode     mode_;          // active pattern (set only by the fill engine)
+    uint8_t  faultGroups_;   // n for FaultBlink (fault code 1..3, PRD §7)
+    uint32_t phaseStartMs_;  // pattern phase anchor (stamped by tick)
+    bool     phaseAnchored_; // false after setMode — next tick re-stamps
+    uint32_t ackStartMs_;    // ack overlay anchor (stamped by tick)
+    bool     ackAnchored_;   // false after triggerAck — next tick re-stamps
+    bool     ackActive_;     // overlay masking the base pattern right now
+};
+// ===== end LED pattern engine (consumed by P1.M5.T2.S1, P1.M5.T3.S1, P1.M6.T1.S2) =====
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 
