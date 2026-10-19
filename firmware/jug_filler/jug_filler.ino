@@ -83,6 +83,80 @@ size_t formatBootBanner(char* buf, size_t bufLen, bool watchdogCaused) {
                             watchdogCaused ? "WATCHDOG" : "POWER_OR_RESET");
 }
 
+// ===================== BOOT-button classifier (P1.M2.T1.S1) =====================
+// Pure press/hold semantics for the BOOT button (PRD §5.1), hardware-agnostic:
+// the caller injects the raw level and the time; this class returns the event.
+//
+//   BUTTON_DEBOUNCE_MS (40)     — a new raw level must persist this long before
+//                                 it becomes the accepted level; anything shorter
+//                                 is contact bounce and is discarded.
+//   BUTTON_LONG_PRESS_MS (1000) — a completed press is Long iff the debounced
+//                                 hold lasted >= this; otherwise Short.
+//   BOTH events fire on RELEASE — never while held (PRD §5.1 "acts on RELEASE").
+//
+// Hold-time anchor: press and release are each deemed effective at the theoretical
+// acceptance instant (rawEdge + BUTTON_DEBOUNCE_MS). The two debounce windows
+// cancel, so measured hold = how long the raw level was continuously pressed —
+// independent of how often update() happens to be called. A press raw-stable from
+// C to R classifies exactly (R - C) >= 1000.
+//
+// State-agnostic by design: PRD §5.1's per-state actions/ignores (CONFIRM/FAULT
+// ignore everything) belong to the fill engine (P1.M6.T1.S1), which consumes this
+// event stream. Caller contract (P1.M2.T2.S1, P1.M6.T2.S1): call update() every
+// loop pass with nowMs non-decreasing, same clock domain as all other services.
+class ButtonClassifier {
+public:
+    // Exactly one value per update() call. None is the steady-state return —
+    // including the entire time the button is held (no event while held).
+    enum Event : uint8_t { None = 0, ShortPress = 1, LongPress = 2 };
+
+    ButtonClassifier()
+        : level_(false),          // accepted (debounced) level: not pressed
+          candidate_(false),      // raw level being confirmed toward level_
+          candidateSince_(0),     // nowMs-domain stamp when candidate_ appeared
+          pressStart_(0) {}       // effective start of the current debounced press
+
+    // Feed one raw sample at nowMs. Returns the event caused by this sample:
+    // ShortPress or LongPress on the accepted RELEASE of a press, else None.
+    // All timing composes elapsedMs() — rollover-safe by construction.
+    Event update(uint32_t nowMs, bool pressedRaw) {
+        // 1. Stable-sample tracking: any raw flip restarts the confirmation
+        //    window, so bounce can never accumulate into an acceptance.
+        if (pressedRaw != candidate_) {
+            candidate_ = pressedRaw;
+            candidateSince_ = nowMs;
+        }
+        // 2. Accept a pending level change once the candidate has held for the
+        //    full debounce interval (>= is inclusive: exactly 40 is enough).
+        if (candidate_ != level_ &&
+            elapsedMs(nowMs, candidateSince_) >= BUTTON_DEBOUNCE_MS) {
+            level_ = candidate_;
+            if (level_) {
+                // Effective press start = raw edge + debounce (see anchor note).
+                // Presses NEVER emit — only releases do (PRD §5.1).
+                pressStart_ = candidateSince_ + BUTTON_DEBOUNCE_MS;
+                return Event::None;
+            }
+            // Accepted release: classify the completed hold, emit ONCE, then the
+            // state is already reset for the next press (level_ false, candidate
+            // tracking continues fresh). Hold = releaseEdge - pressEdge, both
+            // anchored the same way, measured rollover-safely.
+            const uint32_t holdMs =
+                elapsedMs(candidateSince_ + BUTTON_DEBOUNCE_MS, pressStart_);
+            return (holdMs >= BUTTON_LONG_PRESS_MS) ? Event::LongPress
+                                                    : Event::ShortPress;
+        }
+        return Event::None;
+    }
+
+private:
+    bool level_;               // accepted (debounced) level; true == pressed
+    bool candidate_;           // latest raw level being confirmed toward level_
+    uint32_t candidateSince_;  // stamp (nowMs domain) when candidate_ appeared
+    uint32_t pressStart_;      // effective start of the current debounced press
+};
+// ========= end BOOT-button classifier (consumed by P1.M2.T2.S1, P1.M6.T1.S1) =========
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 

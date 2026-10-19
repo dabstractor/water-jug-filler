@@ -107,21 +107,21 @@
           "type": "Milestone",
           "id": "P1.M2",
           "title": "BOOTSEL button service",
-          "status": "Planned",
+          "status": "Ready",
           "description": "Turn the onboard BOOT button into a classified event stream (short/long, acting on release, debounced) exactly per PRD section 5.1, correcting the PRD's pseudo-pin prescription to the real arduino-pico BOOTSEL API.",
           "tasks": [
             {
               "type": "Task",
               "id": "P1.M2.T1",
               "title": "Pure button classifier",
-              "status": "Researching",
+              "status": "Complete",
               "description": "Debounce + press-length classification that emits ShortPress/LongPress on release only.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T1.S1",
                   "title": "ButtonClassifier: 40ms debounce, 1000ms long threshold, events on release (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M1.T2.S1"
@@ -140,14 +140,14 @@
               "type": "Task",
               "id": "P1.M2.T2",
               "title": "Wire the onboard BOOTSEL hardware",
-              "status": "Planned",
+              "status": "Ready",
               "description": "Sample the real button and feed the classifier, using the verified arduino-pico BOOTSEL API (not the PRD's pseudo-pin phrasing).",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T2.S1",
                   "title": "Poll BOOTSEL bool object into classifier with event logging",
-                  "status": "Planned",
+                  "status": "Ready",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T1.S1",
@@ -184,7 +184,7 @@
                   "type": "Subtask",
                   "id": "P1.M3.T1.S1",
                   "title": "ReadingAggregator + median helper (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T2.S1"
