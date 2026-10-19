@@ -1,0 +1,23 @@
+h1.0 Jug Filler — Technical Specification
+ h2.0 0. Summary
+ h2.1 1. Hardware / BOM
+ h2.2 2. Wiring, pins, power
+  h3.0 2.1 Canonical pin map
+  h3.1 2.2 Power path & cautions
+  h3.2 2.3 Block diagram
+ h2.3 3. Firmware platform
+ h2.4 4. States and LED contract
+ h2.5 5. Button & reset semantics
+  h3.3 5.1 BOOT button — acts on RELEASE
+  h3.4 5.2 Interaction flows (normative)
+  h3.5 5.3 RESET button / power cycle
+ h2.6 6. Timer model (the backstop)
+  h3.6 6.1 Recovery clock (RAM only)
+  h3.7 6.2 Backstop table — concave on purpose
+ h2.7 7. Fill lifecycle & faults
+ h2.8 8. config.h contract — every tunable, one place
+ h2.9 9. Commissioning & calibration
+ h2.10 10. Safety invariants (non-negotiable)
+ h2.11 11. Accepted limitations
+---
+code:2 para:11 list:9 table:6
