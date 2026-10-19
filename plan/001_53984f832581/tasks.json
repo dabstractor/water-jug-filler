@@ -177,7 +177,7 @@
               "type": "Task",
               "id": "P1.M3.T1",
               "title": "Averaged ADC reading service",
-              "status": "Researching",
+              "status": "Complete",
               "description": "32-sample averaged readings every 100 ms per sensor, plus the median helper baselines use, with the 12-bit resolution requirement enforced.",
               "subtasks": [
                 {
@@ -199,7 +199,7 @@
                   "type": "Subtask",
                   "id": "P1.M3.T1.S2",
                   "title": "ADC hardware wiring: 12-bit resolution + raw-count commissioning log",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M3.T1.S1",
@@ -219,14 +219,14 @@
               "type": "Task",
               "id": "P1.M3.T2",
               "title": "Baseline capture and plausibility gate",
-              "status": "Planned",
+              "status": "Researching",
               "description": "The section 7.1 pre-valve gate: settle 2 s, median-of-averaged dry baselines, range check, refuse-to-open on failure.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M3.T2.S1",
                   "title": "BaselineCapture: 2s settle, median-of-averages, BASELINE_MIN..MAX check (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M3.T1.S1"

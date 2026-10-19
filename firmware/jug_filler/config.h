@@ -47,7 +47,8 @@ constexpr uint16_t TRIP_MIN_ELAPSED_S = 60;   // s — trips before this elapsed
 
 // ---- 5. ADC / sensors (provisional; set during commissioning — PRD §9) ----
 // ADC_BITS: analogReadResolution(ADC_BITS) is MANDATORY in setup() — the
-//   arduino-pico default is 10-bit; every count below is a 12-bit count (0–4095).
+//   arduino-pico default is 10-bit; every count below is a 12-bit count (0–4095)
+//   assuming the 3.3 V rail as full-scale (AVDD reference; 3.3 V ≈ 4095).
 constexpr uint8_t  ADC_BITS               = 12;     // bits — ADC resolution the sketch must set (PRD §8 contract)
 constexpr uint16_t ADC_SAMPLES_PER_READING = 32;    // samples — averaged per reading (PRD §8)
 constexpr uint32_t READING_INTERVAL_MS     = 100;   // ms — cadence between averaged readings (PRD §8)

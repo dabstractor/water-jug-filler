@@ -306,6 +306,25 @@ static uint32_t s_btnFallMs  = 0;      // stamp of raw release edge  (true  -> f
 // classifier stays the sole authority for debounce and short/long classification.
 // ---- end BOOTSEL button service state (used by loop, kept by P1.M6.T2.S1) ----
 
+// ---- ADC sampling service state (P1.M3.T1.S2) ----
+// Hardware side of the sensor chain (PRD §2.1/§7/§8): pace out 32 raw 12-bit
+// samples per sensor across each READING_INTERVAL_MS (100 ms) window and feed
+// them to the pure ReadingAggregator (P1.M3.T1.S1). Pacing is DERIVED, not a
+// tunable: READING_INTERVAL_MS / ADC_SAMPLES_PER_READING = 100/32 = 3 ms
+// (truncated) — 32 samples span ~96 ms < 100 ms, so a full fresh window is
+// always ready before readingDue() fires, and the average is a true boxcar over
+// (nearly) the whole interval instead of the last millisecond of signal.
+// Resolution: setup() calls analogReadResolution(ADC_BITS) once (arduino-pico
+// defaults to 10-bit — without it every §8 count threshold is ~4x off; see
+// external_deps §3). No pinMode for GP26/GP27 — analogRead configures the pad.
+constexpr uint32_t ADC_SAMPLE_PACE_MS = READING_INTERVAL_MS / ADC_SAMPLES_PER_READING;  // 3 ms, derived — NOT a §8 tunable
+static ReadingAggregator s_adc;     // aggregator instance; RAM state only
+static uint32_t s_adcSampleMs = 0;  // anchor: last sample-pair instant
+static uint32_t s_adcLogMs    = 0;  // anchor: last commissioning log line
+static uint16_t s_adcAvg1 = 0;      // latest emitted averaged pair (counts) — the
+static uint16_t s_adcAvg2 = 0;      //   handoff P1.M6.T2.S1 routes into FillEngine
+// ---- end ADC sampling service state (used by loop, kept by P1.M6.T2.S1) ----
+
 void setup() {
   digitalWrite(PIN_VALVE, LOW);   // LINE 1 — PRD §10: valve closed before all else
   pinMode(PIN_VALVE, OUTPUT);     // drive the pre-latched LOW (glitch-free)
@@ -344,8 +363,32 @@ void loop() {
             ev == ButtonClassifier::LongPress ? "long" : "short", holdMs);
   }
   // ---- end BOOTSEL poll ----
-  // P1.M6.T2.S1 fills the loop below this line (ADC, fill engine, LED, event
-  // logs via logLine). Nothing may ever be inserted above watchdog_update().
+  // ---- ADC sample / aggregate / commissioning log (P1.M3.T1.S2) — third stage ----
+  // Order inside the stage matters: SAMPLE first (freshest samples are in the
+  // window), then EMIT the reading pair, then LOG. All timing composes elapsedMs
+  // against the single nowMs snapshot taken above (one clock read per pass).
+  if (elapsedMs(nowMs, s_adcSampleMs) >= ADC_SAMPLE_PACE_MS) {
+    s_adcSampleMs = nowMs;  // re-anchor at the sample instant — even pacing
+    s_adc.addSample(0, (uint16_t)analogRead(PIN_SENSOR1), nowMs);  // 0 == S1 / fault 1
+    s_adc.addSample(1, (uint16_t)analogRead(PIN_SENSOR2), nowMs);  // 1 == S2 / fault 2
+  }
+  if (s_adc.readingDue(nowMs)) {
+    s_adc.takeReading(nowMs, s_adcAvg1, s_adcAvg2);  // emits + re-anchors cadence
+  }
+  // Commissioning log (PRD §9.3): one line per second of the LATEST EMITTED
+  // averaged pair, in raw 12-bit counts (3.3 V full-scale) — the same quantity
+  // every §8 threshold compares against, so observed dry/wet ranges transfer
+  // directly to BASELINE_MIN/MAX and TRIP_DROP_COUNTS. 1000 ms literal = this
+  // task's 1 Hz contract, not a §8 tunable. Consumed by the §9 commissioning
+  // audit (P2.M1.T1.S1); greppable as ^S1=.
+  if (elapsedMs(nowMs, s_adcLogMs) >= 1000) {
+    s_adcLogMs = nowMs;
+    logLine("S1=%u S2=%u", (unsigned)s_adcAvg1, (unsigned)s_adcAvg2);
+  }
+  // ---- end ADC sample / aggregate / commissioning log ----
+  // P1.M6.T2.S1 fills the loop below this line (fill engine routing, LED, event
+  // logs via logLine; ADC sampling landed in P1.M3.T1.S2). Nothing may ever be
+  // inserted above watchdog_update().
 }
 
 #endif  // ARDUINO
