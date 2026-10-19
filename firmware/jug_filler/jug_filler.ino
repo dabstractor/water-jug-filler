@@ -386,6 +386,77 @@ private:
 };
 // ========= end baseline capture (consumed by P1.M3.T3.S1, P1.M6.T1.S2, P1.M6.T1.S3) =========
 
+// ===================== Trip detection, per sensor (P1.M3.T3.S1) =====================
+// Sensor chain stage 3 (PRD §7.3), pure and TIMELESS: an averaged reading at
+// or below (baseline − TRIP_DROP_COUNTS = 350 counts) for DEBOUNCE_COUNT = 8
+// CONSECUTIVE readings means that sensor is wet = tripped. One instance per
+// sensor (0 == PIN_SENSOR1 == fault code 1, 1 == PIN_SENSOR2 == fault code 2);
+// instances share no state, so sensor independence is structural.
+//
+// Debounce logic: readings at or below the threshold advance a streak; any
+// reading STRICTLY above it resets the streak to zero (PRD §7.3 "at or below
+// (baseline − TRIP_DROP_COUNTS) for DEBOUNCE_COUNT consecutive readings" —
+// the boundary baseline−350 itself QUALIFIES, inclusive; baseline−349 resets).
+// When the streak reaches DEBOUNCE_COUNT the trip LATCHES: tripped() stays
+// true for the remainder of the fill regardless of later readings — the
+// valve-close decision (PRD §7.4) must never chatter. The latch is cleared
+// only by begin() (next fill).
+//
+// This class owns ONLY the count-domain rule. Everything time-domain is the
+// guards' business (P1.M3.T3.S2: TRIP_MIN_ELAPSED_S / EARLY_WET_WINDOW_S)
+// and everything action-domain is the fill engine's (P1.M6.T1.S2: close
+// valve, CONFIRM window).
+//
+// Caller contract (P1.M6.T1.S2, fed once per emitted averaged reading):
+//   at fill start, after BaselineCapture (P1.M3.T2.S1) reports verdict Ok:
+//     trip1.begin(baseline.baseline(0));   // VALIDATED dry baseline
+//     trip2.begin(baseline.baseline(1));
+//   per emitted pair:  trip1.feed(a1); trip2.feed(a2);
+//   poll:              if (trip1.tripped() || trip2.tripped()) { /* engine */ }
+// begin() with an UNVALIDATED baseline is a caller bug: a baseline below
+// TRIP_DROP_COUNTS would wrap the threshold to a huge value (unsigned
+// arithmetic is mod-2^16) and the detector would simply never trip — the
+// fail-safe direction (the fill backstop, PRD §7.7, catches it as fault 3
+// "timer, no trip"). No clamping on purpose: a clamp to 0 would make every
+// reading qualify = trip-on-anything = unsafe.
+class TripDetector {
+public:
+    TripDetector() : threshold_(0), streak_(0), tripped_(false) {}
+
+    // Arm for a new fill with the sensor's VALIDATED dry baseline (counts,
+    // BASELINE_MIN..BASELINE_MAX — BaselineCapture::verdict(s) == Ok).
+    // Computes the wet threshold baseline − TRIP_DROP_COUNTS once, resets
+    // the streak and clears the latch.
+    void begin(uint16_t baseline) {
+        threshold_ = (uint16_t)(baseline - TRIP_DROP_COUNTS);
+        streak_ = 0;
+        tripped_ = false;
+    }
+
+    // One AVERAGED reading from the ReadingAggregator stream (P1.M3.T1.S1).
+    // At/below threshold advances the streak; strictly above resets it; the
+    // DEBOUNCE_COUNT-th consecutive qualifying reading latches the trip.
+    // No-op once latched (readings after the trip cannot change anything).
+    void feed(uint16_t avg) {
+        if (tripped_) return;  // latched for the remainder of the fill
+        if (avg <= threshold_) {
+            if (++streak_ >= DEBOUNCE_COUNT) tripped_ = true;
+        } else {
+            streak_ = 0;  // strictly above the threshold — streak broken
+        }
+    }
+
+    // Latched trip flag — the ONLY output. Consumed by the fill engine
+    // (P1.M6.T1.S2: close valve -> CONFIRM) and the guards (P1.M3.T3.S2).
+    bool tripped() const { return tripped_; }
+
+private:
+    uint16_t threshold_;  // baseline − TRIP_DROP_COUNTS, set by begin()
+    uint8_t  streak_;     // consecutive qualifying readings (0..DEBOUNCE_COUNT)
+    bool     tripped_;    // latched once the streak reached DEBOUNCE_COUNT
+};
+// ========= end trip detector (consumed by P1.M3.T3.S2, P1.M6.T1.S2) =========
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 
