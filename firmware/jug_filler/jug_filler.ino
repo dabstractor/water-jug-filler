@@ -457,6 +457,100 @@ private:
 };
 // ========= end trip detector (consumed by P1.M3.T3.S2, P1.M6.T1.S2) =========
 
+// ===================== False-trip guards (P1.M3.T3.S2) =====================
+// Sensor chain stage 5 (PRD §7.6), pure: classify trips and wet readings that
+// are TOO EARLY to be real water arrival as false trips (electrical short,
+// wet tips, jug already full) so the fill engine faults the offending sensor
+// instead of trusting it. Two windows, both measured as fill time = time since
+// valveOpenedAtMs — supplied BY THE ENGINE as a parameter each call; this
+// class does NOT track when the valve opened (P1.M6.T1.S2 owns that):
+//   - Early-wet:  an averaged reading at/below baseline − TRIP_DROP_COUNTS
+//     (the SAME inclusive wet predicate as the trip rule, PRD §7.3 /
+//     P1.M3.T3.S1) while fill time is inside the first EARLY_WET_WINDOW_S
+//     (5 s) -> the sensor reads wet before water can possibly have reached
+//     it -> short.
+//   - Early-trip: a trip ACCEPTED by the TripDetector (tripped() latched,
+//     P1.M3.T3.S1) while fill time is before TRIP_MIN_ELAPSED_S (60 s) ->
+//     false trip.
+// Both windows close AT equality (strict '<'): a trip accepted at exactly
+// 60.000 s is LEGAL (Ok) and a wet reading at exactly 5.000 s is legal.
+//
+// Verdict precedence when several conditions hold at once (deterministic; the
+// fault OUTCOME is identical either way — the engine faults the named sensor
+// and latches, PRD §7 fault table): early-wet wins over early-trip (a short is
+// the more specific diagnosis, and wetness necessarily PRECEDED the trip
+// because the 8-reading debounce takes >= 800 ms), and sensor 1 (index 0) is
+// reported before sensor 2 (index 1).
+//
+// Caller contract (P1.M6.T1.S2 — once per loop pass while FILLING; loop
+// cadence is sub-millisecond, so the 60 s boundary cannot be straddled):
+//   at fill start, with the SAME validated baselines the TripDetectors got
+//   (BaselineCapture verdict Ok, P1.M3.T2.S1):
+//     guards.begin(baseline.baseline(0), baseline.baseline(1));
+//   every loop pass in FILLING, after feeding the detectors:
+//     const GuardVerdict v = guards.evaluate(nowMs, valveOpenedAtMs,
+//                                            trip1.tripped(), trip2.tripped(),
+//                                            avg1, avg2);
+//     if (v.kind != GuardVerdict::Ok) { /* fault path: valve LOW first, latch */ }
+// evaluate() is STATELESS (a pure function of its inputs, const): the engine
+// owns verdict consumption and fault latching (P1.M6.T1.S3). Calling it
+// outside FILLING is out of contract: if nowMs predates valveOpenedAtMs the
+// elapsed wraps to a huge fill time, both windows read closed, verdict Ok —
+// harmless. begin() with an UNVALIDATED baseline (< TRIP_DROP_COUNTS) wraps
+// the wet threshold to a huge value -> every reading reads wet -> EarlyWet
+// fault on the first evaluation: out-of-contract, but the fail-safe
+// direction (fault = the valve stays closed / is driven LOW first). No
+// clamping on purpose.
+struct GuardVerdict {
+    enum Kind : uint8_t { Ok = 0, EarlyTripFault = 1, EarlyWetFault = 2 };
+    Kind    kind;    // Ok, or which rule fired
+    uint8_t sensor;  // 0 == sensor 1 (PIN_SENSOR1, fault code 1),
+                     // 1 == sensor 2 (PIN_SENSOR2, fault code 2); 0 when Ok
+};
+class FalseTripGuards {
+public:
+    FalseTripGuards() : wetThreshold1_(0), wetThreshold2_(0) {}
+
+    // Arm for a new fill with the sensors' VALIDATED dry baselines (counts,
+    // BASELINE_MIN..BASELINE_MAX — BaselineCapture::verdict(s) == Ok).
+    // Computes each wet threshold baseline − TRIP_DROP_COUNTS once, exactly
+    // like TripDetector::begin does for the trip rule — the SAME predicate.
+    void begin(uint16_t baseline1, uint16_t baseline2) {
+        wetThreshold1_ = (uint16_t)(baseline1 - TRIP_DROP_COUNTS);
+        wetThreshold2_ = (uint16_t)(baseline2 - TRIP_DROP_COUNTS);
+    }
+
+    // Classify one loop instant. nowMs and valveOpenedAtMs are timestamp-domain
+    // uint32_t values injected by the engine; tripped1/2 are
+    // TripDetector::tripped() (the detector's entire observable state);
+    // avg1/2 are the latest averaged readings from the ReadingAggregator.
+    // Wrap-safe fill time via elapsedMs() ONLY — direct timestamp comparison
+    // is forbidden (time-helpers seam rule). Window constants are SECONDS in
+    // config.h — widen to uint32_t BEFORE the x1000 or it truncates.
+    GuardVerdict evaluate(uint32_t nowMs, uint32_t valveOpenedAtMs,
+                          bool tripped1, bool tripped2,
+                          uint16_t avg1, uint16_t avg2) const {
+        const uint32_t fillTimeMs = elapsedMs(nowMs, valveOpenedAtMs);
+
+        // Early-wet window (first EARLY_WET_WINDOW_S; closes AT equality).
+        if (fillTimeMs < (uint32_t)EARLY_WET_WINDOW_S * 1000u) {
+            if (avg1 <= wetThreshold1_) return { GuardVerdict::EarlyWetFault, 0 };
+            if (avg2 <= wetThreshold2_) return { GuardVerdict::EarlyWetFault, 1 };
+        }
+        // Early-trip window (before TRIP_MIN_ELAPSED_S; closes AT equality).
+        if (fillTimeMs < (uint32_t)TRIP_MIN_ELAPSED_S * 1000u) {
+            if (tripped1) return { GuardVerdict::EarlyTripFault, 0 };
+            if (tripped2) return { GuardVerdict::EarlyTripFault, 1 };
+        }
+        return { GuardVerdict::Ok, 0 };
+    }
+
+private:
+    uint16_t wetThreshold1_;  // baseline1 − TRIP_DROP_COUNTS, set by begin()
+    uint16_t wetThreshold2_;  // baseline2 − TRIP_DROP_COUNTS, set by begin()
+};
+// ========= end false-trip guards (consumed by P1.M6.T1.S2, P1.M6.T1.S3) =========
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 
