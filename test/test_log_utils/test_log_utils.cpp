@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-#include "../firmware/jug_filler/jug_filler.ino"
+#include "../../firmware/jug_filler/jug_filler.ino"
 
 void setUp() {}
 void tearDown() {}

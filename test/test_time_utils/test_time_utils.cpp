@@ -6,7 +6,7 @@
 // 49.7-day wrap is exercised directly via 0xFFFFFFFF/0x00000000 timestamps.
 #include <unity.h>
 
-#include "../firmware/jug_filler/jug_filler.ino"
+#include "../../firmware/jug_filler/jug_filler.ino"
 
 void setUp() {}
 void tearDown() {}
@@ -66,15 +66,17 @@ void test_deadline_wrap_one_ms_before() {
 // --- config-scale scenario: 30-min backstop anchored 256 ms before the wrap ---
 void test_backstop30min_across_wrap_elapsed() {
     const uint32_t valveOpened = 0xFFFFFF00UL;                       // 256 ms below wrap
-    const uint32_t deadline = valveOpened + 30UL * 60000UL;          // = 0x1B6640 (wrapped)
-    TEST_ASSERT_EQUAL_UINT32(0x1B6640UL, deadline);                  // arithmetic anchor
+    // mod-2^32 addition is the sanctioned way to build a deadline; the explicit cast
+    // documents the intentional (well-defined) truncation of 4296767040 -> 0x1B7640.
+    const uint32_t deadline = (uint32_t)(valveOpened + 30UL * 60000UL);  // = 0x1B7640
+    TEST_ASSERT_EQUAL_UINT32(0x1B7640UL, deadline);                  // arithmetic anchor
     TEST_ASSERT_EQUAL_UINT32(1800000UL, elapsedMs(deadline, valveOpened));
 }
 void test_backstop30min_across_wrap_deadline_edges() {
-    const uint32_t deadline = 0x1B6640UL;
-    TEST_ASSERT_FALSE(deadlinePassed(0x1B663FUL, deadline));  // 1 ms early: valve still open
-    TEST_ASSERT_TRUE(deadlinePassed(0x1B6640UL, deadline));   // at deadline: fires
-    TEST_ASSERT_TRUE(deadlinePassed(0x1B6641UL, deadline));   // 1 ms late: fires
+    const uint32_t deadline = 0x1B7640UL;                     // = 0xFFFFFF00 + 1800000 (wrapped)
+    TEST_ASSERT_FALSE(deadlinePassed(0x1B763FUL, deadline));  // 1 ms early: valve still open
+    TEST_ASSERT_TRUE(deadlinePassed(0x1B7640UL, deadline));   // at deadline: fires
+    TEST_ASSERT_TRUE(deadlinePassed(0x1B7641UL, deadline));   // 1 ms late: fires
 }
 
 // --- deadlinePassed: half-wheel domain boundary (2^31 ms ≈ 24.86 days) ---

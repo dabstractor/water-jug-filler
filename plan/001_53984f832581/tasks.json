@@ -11,7 +11,7 @@
           "type": "Milestone",
           "id": "P1.M1",
           "title": "Scaffold, config.h and safe skeleton",
-          "status": "Researching",
+          "status": "Ready",
           "description": "Create the repo layout that builds in both Arduino IDE and PlatformIO, author config.h as the single tunables surface, establish the native-test seam, and land the non-negotiable safety skeleton: valve LOW as line 1 of setup(), hardware watchdog fed every loop pass, rollover-safe time utilities, unplug-safe serial logging.",
           "tasks": [
             {
@@ -64,14 +64,14 @@
               "type": "Task",
               "id": "P1.M1.T2",
               "title": "Safe-loop foundation: watchdog, time utilities, logging policy",
-              "status": "Researching",
+              "status": "Ready",
               "description": "The timing and supervision bedrock every other component consumes: wrap-safe millis arithmetic, hardware watchdog, and a serial logging policy that cannot stall the device when USB is absent.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T2.S1",
                   "title": "Rollover-safe time utilities (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T1.S2"
@@ -86,7 +86,7 @@
                   "type": "Subtask",
                   "id": "P1.M1.T2.S2",
                   "title": "Hardware watchdog service and unplug-safe serial logging",
-                  "status": "Failed",
+                  "status": "Ready",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T1.S2"

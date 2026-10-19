@@ -3,7 +3,7 @@
 // config constants reach native tests and the unguarded region is callable.
 #include <unity.h>
 
-#include "../firmware/jug_filler/jug_filler.ino"
+#include "../../firmware/jug_filler/jug_filler.ino"
 
 void setUp() {}
 void tearDown() {}
