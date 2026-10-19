@@ -1,92 +1,196 @@
-# Jug Filler: Project Spec
+# Jug Filler — Technical Specification
 
-## Purpose
-Fill a 4 gallon jug with RO water and shut the valve automatically when the water reaches a set level. No WiFi, no app, no extras. A hard timer is the backstop if the sensors fail.
+## 0. Summary
+Fill a 4 gallon jug with RO water and shut the valve automatically when the water reaches a set level. No WiFi, no app, no persistence. The valve only ever opens in response to a BOOT button press from a human. A hard timer backstop — computed from how recovered the RO tank is — bounds the fill if the sensors fail.
 
-## Hardware
+## 1. Hardware / BOM
 | Part | Role |
 |---|---|
-| Raspberry Pi Pico or other RP2040 board (3.3 V logic, no wireless variant needed) | Controller. Pin names below assume the Pico pinout |
-| FPD180A solenoid, 12V, ~400mA, normally closed | Water valve |
-| Logic-level MOSFET module (IRLZ44N/IRL520 class) | Switches the valve. Must fully turn on from a 3.3 V gate — see "MOSFET gate drive" below |
+| Waveshare RP2040-Zero (RP2040, 2MB flash, 3.3 V logic) | Controller. Onboard BOOT + RESET buttons (both used). Onboard WS2812 RGB LED on GP16. Exposed pins: GP0–GP15 and GP26–GP29. **GP16–GP25 exist only as microscopic back pads — treat as unusable.** |
+| FPD180A solenoid, 12V, ~400mA, normally closed | Water valve. NC = power loss closes it |
+| Logic-level MOSFET module (IRLZ44N / IRL520 class) | Switches the valve from a 3.3 V gate — see §2. Gate pull-down is on the module |
 | 1N4148 diode (second optional, in parallel) | Flyback across the solenoid, stripe toward +12V |
-| 2x HW-390 v2.0 capacitive sensors | Full-level detection, bare tips directly in the water, mounted in the printed cap at the same depth. Powered at 3.3 V |
-| LM2596 buck converter | 12V to 5V into the board's VSYS; the board's own regulator makes 3.3 V. Set and verified with a multimeter before connecting the board |
+| 2x HW-390 v2.0 capacitive sensors | Full-level detection, bare tips in the water at the same depth in the printed cap. Powered at **3.3 V** |
+| LM2596 buck converter | 12V→5V into the board's 5V pin; the board's LDO makes 3.3 V. Set and verify with a multimeter before connecting the board |
 | 12V 1A supply | Feeds the valve and the buck |
-| External LED + resistor | Fault/status blink codes |
-| 100uF cap on the 5V rail | Smooths switching noise for cleaner ADC readings |
-| 100nF cap from each sensor AOUT to GND (recommended) | The RP2040 ADC is noisier than an AVR's; these tame the analog lines |
-| Onboard BOOTSEL button | The user control button (start / abort / extend). No external button needed |
-| Onboard RESET button, or a momentary RUN-to-GND button on boards without one | Full device reset |
+| External LED, **super-bright green**, 5mm + ~330Ω | Status/fault indicator (green = success, per §4). Brightness matters: the "done" signal must grab attention |
+| 100uF electrolytic on the 5V rail | Decoupling for cleaner ADC readings |
+| 100nF ceramic from each sensor AOUT to GND | Tames the analog lines into the RP2040 ADC |
 
-## 3.3 V logic warning
-RP2040 GPIO are 3.3 V only and **not** 5 V tolerant. Nothing above 3.3 V may touch any GPIO. This drives three choices: the sensors run at 3.3 V, the board is powered through VSYS at 5 V (its onboard regulator makes the 3.3 V rail), and the MOSFET module must switch from a 3.3 V gate.
+## 2. Wiring, pins, power
+### 2.1 Canonical pin map
+| Board pin | Connects to | Notes |
+|---|---|---|
+| **GP26 / ADC0** | Sensor 1 AOUT | GP26–GP29 are the RP2040's only ADC-capable pins (ADC0–ADC3) |
+| **GP27 / ADC1** | Sensor 2 AOUT | |
+| **GP15** | MOSFET module TRIG/SIG | HIGH = valve open |
+| **GP14** | External LED anode (via 330Ω; cathode → GND) | |
+| **3V3 pin** | Sensor VCC (both sensors) | Never 5V — GPIO/ADC are 3.3V-only, not 5V tolerant |
+| **5V pin** | LM2596 5V output | Board makes its own 3.3V |
+| **GND** | All grounds common: 12V supply, buck, MOSFET module, sensors | |
+| BOOTSEL (onboard, no wiring) | Control button | Read in firmware via arduino-pico's `BOOTSEL` pseudo-pin (`pinMode(BOOTSEL, INPUT_PULLUP)`, `digitalRead`). Cannot enter bootloader unless RESET is held too |
+| RESET (onboard, no wiring) | Full device reset | |
+| GP16 (onboard, no wiring) | WS2812 RGB LED mirror | Firmware only; optional, behind a config flag |
 
-## MOSFET gate drive (the one real gotcha of this switch)
-The old plan drove the common blue IRF520 module from a 5 V Pro Micro pin. RP2040 GPIO tops out at 3.3 V, and an IRF520 is specified for ~10 V gates: at 3.3 V it may not turn on at all, or may sit half-on and overheat. Use a logic-level module (IRLZ44N / IRL520 class), or bench-prove the existing one before trusting it: gate to 3.3 V, drain switching the actual solenoid at 12 V — it must pull in crisply and the FET must stay cool. If in doubt, replace the module.
+Spares: GP28/GP29 (ADC2/ADC3) and GP2–GP13, all unwired. Reserved: GP0/GP1 (UART0 TX/RX) for debug serial. Unusable: GP16–GP25 (back pads).
 
-The module's onboard pull-down keeps the valve closed while the RP2040 boots, while its pins float during BOOTSEL/flashing, and on any brownout.
+### 2.2 Power path & cautions
+- 12V → MOSFET module power-input terminals and LM2596 input. Buck 5V → board **5V** pin. Sensors from **3V3**.
+- **Never connect USB while the buck is powering the board.** On the RP2040-Zero the 5V pin (VSYS) ties directly to USB VBUS with no diode: connecting both backfeeds one supply into the other (PC USB port damage risk). Bench/commissioning runs are USB-powered with the buck disconnected; in service the board runs from the buck with USB unplugged. Program over USB with the buck disconnected.
+- The buck's 5V feeds the board's LDO; total 3.3V load (board + sensors + capped-brightness WS2812) is well within it. Keep WS2812 brightness ≤ ~60/255 in firmware. Verify the buck output with a multimeter (4.9–5.1V) before the board's first power-up.
+- **MOSFET module wiring (two-terminal-block module):** 12V+ / 12V− → the module's power-input block; solenoid wires → the switched output block; header TRIG/PWM → GP15; header GND → GND. Confirm input vs output blocks from the silkscreen and a multimeter before connecting the solenoid — the output must be dead until TRIG is driven high.
+- **MOSFET gate drive requirement:** an IRF520-class "blue module" is NOT guaranteed on at a 3.3V gate. Use a logic-level module, or qualify the module in use by test: with TRIG at 3.3V and the real solenoid at 12V, the module's indicator LED must light, the valve must pull in crisply, and the FET must stay cool.
+- The module's onboard gate pull-down keeps the valve closed while pins float during boot/BOOTSel/flashing/brownout.
+- Route the sensor AOUT wires away from the valve/solenoid wiring to keep switching noise out of the analog readings.
 
-## Power and wiring
-- 12V supply goes to the MOSFET module input and the LM2596 input.
-- LM2596 5V output goes to the Pico **VSYS** pin (pin 39). The Pico's onboard regulator produces 3.3 V for the chip and the **3V3(OUT)** pin (pin 36).
-- Sensors are powered from **3V3(OUT)**. At 3.3 V their absolute readings differ from a 5 V build, but the firmware only ever compares against a per-fill dry baseline, so behavior is unaffected.
-- All grounds common: supply, buck, MOSFET module, board, sensors.
-- On the Pico, VBUS is diode-OR'd with VSYS, so USB and the buck **can** be connected at the same time — useful for serial logging during a real fill. (This was forbidden on the Pro Micro; it no longer is.) Still verify the buck output with a multimeter before the board's first power-up.
-- The valve is normally closed, so power loss closes it.
+### 2.3 Block diagram
+```
+12V supply +  ----+-------------------> MOSFET module IN+
+                  |                        OUT+ ----+---- solenoid A
+                  +--> LM2596 IN+           OUT- ----+---- solenoid B
+                        OUT+ (5V) --> board 5V pin    (1N4148 across A/B, stripe to A/+)
+                        (100uF across 5V/GND at the board)
 
-## Proposed pins (agent should justify any changes)
-| Pin | Connection |
+                  GP15 --> module TRIG/PWM        module GND --> common GND
+                  3V3  --> sensor VCC (x2)        GP26 <-- sensor 1 AOUT (100nF to GND)
+                                                     GP27 <-- sensor 2 AOUT (100nF to GND)
+                  GP14 --> 330R --> LED anode     LED cathode --> GND
+12V supply -  ----> common GND (supply, buck, module, board, sensors)
+```
+
+## 3. Firmware platform
+- **arduino-pico (Earle Philhower) core**, board selection "Waveshare RP2040-Zero". C/C++. Two files: the sketch (`.ino` or `src/main.cpp`) + **`config.h`** holding every constant in §8.
+- PlatformIO layout optional (platform `raspberrypi`, board `waveshare_rp2040_zero`); must also build in Arduino IDE with just the core installed.
+- USB CDC serial at 115200 for logging (state transitions, raw sensor counts, backstop computations); always on. Bench sessions run on USB power with the buck disconnected (§2.2).
+- **No persistence of any kind.** No EEPROM, no flash writes. All state is RAM; any reset starts fresh (see §5.3).
+
+## 4. States and LED contract
+Five states. The external green LED is authoritative; the onboard WS2812 (GP16) mirrors with matching colors when enabled in config.
+
+| State | Meaning | External LED | WS2812 mirror |
+|---|---|---|---|
+| **IDLE** | Powered, waiting for BOOT press | Off | Off |
+| **FILLING** | Valve open, timer running, watching sensors | Solid on | Blue solid |
+| **CONFIRM** | First sensor tripped, valve closed, waiting out the confirm window for the second sensor | Solid on (continues) | Blue solid |
+| **DONE** | Fill complete; attention pattern until acknowledged | **Triple-pulse attention blink**: 3x (on 200ms / off 200ms), then off 1000ms, repeat | Same pattern in green |
+| **FAULT** | Latched fault; see §7 | Blink-code groups (§7) | Same pattern in red |
+
+Transient ack: a +5min long-press during FILLING blinks the LED 3x quickly (on 100ms / off 100ms), then resumes solid.
+
+## 5. Button & reset semantics
+### 5.1 BOOT button — acts on RELEASE
+Contact debounce 40ms; a press is "long" if held ≥ 1000ms (`BUTTON_LONG_PRESS_MS`). Both short and long actions fire on release.
+
+| State | Short press (< 1s) | Long press (≥ 1s) |
+|---|---|---|
+| IDLE | **Start a fill** → FILLING | Nothing |
+| FILLING | **Abort**: valve closed → IDLE | **+5 min** to this fill's backstop timer (stacks; repeatable) + LED ack |
+| CONFIRM | Ignored | Ignored |
+| DONE | **Acknowledge**: light off → IDLE | Also acknowledges |
+| FAULT | Ignored | Ignored |
+
+### 5.2 Interaction flows (normative)
+**Flow 1 (abort):** plug in → BOOT press 1: fill starts → BOOT press 2 mid-fill: fill stops → BOOT press 3: fill starts again with a fresh, recomputed timer.
+**Flow 2 (success):** plug in → BOOT press 1: fill starts → fill completes: green triple-pulse blink → BOOT press 2: blinking stops → BOOT press 3: next fill starts.
+
+### 5.3 RESET button / power cycle
+Full reboot. Always lands in IDLE, valve closed, **tank history cleared — next fill uses the 30-min fresh-tank backstop** (see §6). The device never auto-starts a fill after any reset, watchdog reset included.
+
+## 6. Timer model (the backstop)
+The backstop bounds how long the valve may stay open. Sensors normally end fills far earlier; the backstop exists for sensor failure, so it must hug the real fill time — **never padded**.
+
+### 6.1 Recovery clock (RAM only)
+- The clock's reference point is the moment the previous fill's valve closed (fill end, whatever ended it).
+- Recovery time for a new fill = wall-clock time since that reference.
+- Fresh boot / any reset: no history → the next fill uses `FRESH_BOOT_BACKSTOP_MIN = 30` (assume full tank: high pressure, fast fill).
+- Abort: the recovery clock restarts at the abort instant, exactly like a normal fill end.
+
+### 6.2 Backstop table — concave on purpose
+Physics: the tank refills fast at first (low back-pressure) and progressively slower as pressure builds. So the backstop must fall steeply at short recovery times and flatten near the full-tank value. A straight line pads the mid-range (e.g. a fill started ~15 min after the last one ends) in exactly the wrong direction.
+
+`BACKSTOP_TABLE_MIN` (piecewise-linear between points, clamped at both ends):
+| Recovery since last fill end | Backstop |
 |---|---|
-| GP26 / ADC0 | Sensor 1 AOUT |
-| GP27 / ADC1 | Sensor 2 AOUT |
-| GP15 | MOSFET TRIG (HIGH = open) |
-| GP14 | Fault/status LED |
-| GP25 | Onboard LED, mirrors the external LED (free debugging) |
-| BOOTSEL | Control button (start/abort/extend). The arduino-pico core reads it with `pinMode`/`digitalRead`; it cannot enter the bootloader unless RESET is held at the same time |
+| ≤ 2 min | 44 min |
+| 10 min | 41 min |
+| 20 min | 38 min |
+| 35 min | 34 min |
+| ≥ 60 min | 30 min |
 
-Avoid / keep free:
-- **GP29 / ADC3** — wired to the Pico's VSYS divider; reads garbage on this board.
-- **GP23 / GP24** — Pico SMPS-mode and VBUS-sense lines.
-- **GP0 / GP1** — reserved for a debug UART during bring-up.
+- Every fill's backstop is computed once, at fill start. A long-press +5 modifies the active fill's deadline only.
 
-The agent should give a short table of every pin it chose, what is connected, and why, before writing code.
+## 7. Fill lifecycle & faults
+1. On fill start (BOOT short-press from IDLE): settle `BASELINE_SETTLE_MS` (2s), read both sensors' dry baselines (median of averaged readings). If either is outside `BASELINE_MIN..MAX` → fault that sensor (also catches "jug still full / tips wet" accidental starts). Refuse to open the valve.
+2. Open the valve, start the fill timer (backstop from §6), LED solid.
+3. **Trip rule:** an averaged reading at or below (baseline − `TRIP_DROP_COUNTS`) for `DEBOUNCE_COUNT` consecutive readings = that sensor tripped.
+4. First sensor trips → close the valve immediately → CONFIRM.
+5. CONFIRM window `CONFIRM_WINDOW_S` (12s): the other sensor must trip too, else fault that sensor.
+6. Any trip accepted before `TRIP_MIN_ELAPSED_S` (60s) of fill time, or any sensor reading wet during the first `EARLY_WET_WINDOW_S` (5s), is a false trip / short → fault that sensor.
+7. Backstop expires with no trip → fault "timer, no trip".
+8. CONFIRM passes → DONE: recovery-clock reference set to the valve-close instant; green attention blink until acknowledged.
+9. **Every code path that ends a fill sets the valve pin LOW first.** The valve is only ever HIGH while in FILLING, and FILLING is only entered by a BOOT short-press from IDLE.
 
-## Sensor behavior
-- Analog: **high = dry, low = wet**. Only the tip is covered at full level, so the change will be partial.
-- The RP2040 ADC is 12-bit (0-4095) at 3.3 V and noisier than an AVR's: average **32** samples per reading (16 minimum).
-- Re-read a dry baseline per sensor at the start of every fill. Trip when the reading drops a set amount below baseline, not at a fixed value.
-- Debounce: 5 to 10 consecutive averaged readings past the threshold before a sensor counts as tripped.
-- **TBD from real readings:** trip drop, plausible baseline range, debounce count. All are named constants at the top of the file.
-
-## Fill logic
-1. Start-up check: read both baselines. If either is out of range, fault that sensor and refuse to open the valve.
-2. Open the valve and start the fill timer.
-3. When either sensor trips, close the valve immediately.
-4. Start a short window (~10 to 15s) after the first trip. If the other sensor hasn't tripped by then, fault it.
-5. If a sensor reads wet within the first few seconds of a fill, treat it as a false trip or short and fault it.
-6. If the timer expires with no trip from either sensor, close the valve and fault "timer, no trip".
-7. **Every** code path that ends a fill sets the valve pin LOW.
-
-## Faults
-| Blinks | Meaning |
+| Fault code (blink groups) | Meaning |
 |---|---|
-| 1 | Sensor 1 bad |
-| 2 | Sensor 2 bad |
+| 1 | Sensor 1 bad (baseline out of range, false trip, never tripped in confirm window) |
+| 2 | Sensor 2 bad (same) |
 | 3 | Timer fired, no trip |
 
-- Long pause between blink groups.
-- Faults latch until power cycle or reset button.
+- Fault cadence: N x (on 250ms / off 250ms), off 2000ms, repeat.
+- **Faults latch.** Cleared only by RESET or power cycle (which also clears tank history — next fill defaults to 30 min). BOOT is ignored while faulted.
 - While faulted, the valve refuses to open.
 
-## Safety requirements
-- Valve pin set LOW as the very first line of setup().
-- Enable the RP2040 hardware watchdog (~8s), fed every loop pass. A hung board resets; setup()'s first line then closes the valve, and the device comes back idle waiting for a human start — it never auto-restarts a fill after any reset.
-- No blocking `delay()` in the fill loop. Use `millis()` timing written to survive rollover.
-- The timer cutoff must be close to the real fill time, not padded. A dead sensor should behave like the timer fallback, not overflow the jug.
+## 8. config.h contract — every tunable, one place
+All pins, timings, thresholds, and patterns live in `config.h`, grouped, commented with units and meaning. Defaults:
 
-## Implementation notes
-- Arduino framework on the **arduino-pico (Earle Philhower) core**, C/C++, single readable .ino file.
-- The RP2040 has no EEPROM; if any state must survive power loss it goes to flash (the core offers EEPROM emulation). Whether any state is persisted is a behavioral decision.
-- USB and the buck may be connected simultaneously (see Power and wiring).
-- All tunable values are named constants at the top.
+```cpp
+// ---- Pins (RP2040-Zero) ----
+PIN_SENSOR1 = GP26; PIN_SENSOR2 = GP27;   // AOUT, ADC0/ADC1
+PIN_VALVE   = GP15;                        // HIGH = open
+PIN_LED     = GP14;                        // external green LED
+
+// ---- Button ----
+BUTTON_LONG_PRESS_MS = 1000; BUTTON_DEBOUNCE_MS = 40;
+
+// ---- Fill backstop model ----
+FRESH_BOOT_BACKSTOP_MIN = 30;
+BACKSTOP_TABLE_MIN = { {2,44},{10,41},{20,38},{35,34},{60,30} };
+PLUS5_MIN = 5;                             // long-press extension, FILLING only
+
+// ---- Windows ----
+CONFIRM_WINDOW_S = 12; EARLY_WET_WINDOW_S = 5; TRIP_MIN_ELAPSED_S = 60;
+
+// ---- ADC / sensors (provisional; set during commissioning — §9) ----
+ADC_SAMPLES_PER_READING = 32; READING_INTERVAL_MS = 100;
+BASELINE_SETTLE_MS = 2000;
+BASELINE_MIN = 2000; BASELINE_MAX = 4050;  // plausible dry range, 12-bit counts
+TRIP_DROP_COUNTS = 350; DEBOUNCE_COUNT = 8;
+
+// ---- LED patterns ----
+DONE_PULSE_{ON,OFF}_MS = 200; DONE_PULSE_COUNT = 3; DONE_GAP_MS = 1000;
+FAULT_BLINK_MS = 250; FAULT_PAUSE_MS = 2000; ACK_BLINK_MS = 100;
+USE_ONBOARD_RGB = true; RGB_BRIGHTNESS = 60;   // WS2812 on GP16, ≤60/255
+
+// ---- Platform ----
+SERIAL_BAUD = 115200; WATCHDOG_TIMEOUT_S = 8;
+```
+
+## 9. Commissioning & calibration
+1. **Dry bench check:** flash the firmware; verify IDLE state and BOOT press logging (BOOTSEL reads). Dry-fire the valve with short clicks (<5s each to avoid overheating the solenoid).
+2. **Power rails:** bench sessions are USB-powered with the buck disconnected from the board (12V may feed the MOSFET module alone for valve tests). With the buck powering the 5V pin (USB unplugged), confirm 4.9–5.1V at the 5V pin. Never USB and buck together (§2.2).
+3. **Sensor calibration (sets the provisional constants above):** sensors in open air → log dry baselines (expect ~3000–3900 counts at 3.3V); tips submerged to mount depth → log wet values. Set `BASELINE_MIN/MAX` around the observed dry range and `TRIP_DROP_COUNTS` at roughly half the observed dry→wet delta.
+4. **Dry-run flows 1 and 2** (§5.2) with sensors dipped in a cup by hand.
+5. **Attended first fill:** log actual fill durations vs recovery times; set `BACKSTOP_TABLE_MIN` accordingly.
+
+## 10. Safety invariants (non-negotiable)
+- Valve pin driven LOW as the very first line of `setup()`.
+- The valve opens only in FILLING; FILLING is entered only by a human BOOT press. No path — boot, watchdog reset, fault recovery, button — ever opens the valve automatically.
+- RP2040 hardware watchdog (~8s), fed every loop pass. A hang resets → valve closed → IDLE awaiting a press.
+- No blocking `delay()` in the fill loop; all timing via rollover-safe `millis()` arithmetic.
+- Backstops hug real fill times (§6). A dead sensor must behave like the timer fallback, not overflow the jug.
+
+## 11. Accepted limitations
+- **No persistence:** reset/power loss wipes tank history; next fill defaults to the 30-min backstop.
+- **Jug removed mid-fill is undetectable** before the first sensor trip (tips are dry either way; no flow meter). The fill runs until the backstop faults. Removal during the confirm window only matters after the valve already closed — not handled.
+- **Done-blink persists until acknowledged** — no timeout; only a BOOT acknowledgment (or reset) clears it.
+- Faults clear only via RESET/power cycle.
