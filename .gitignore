@@ -11,3 +11,7 @@ venv/
 
 # OS-specific files
 .DS_Store
+*.log
+*.tmp
+*.bak
+*.swp

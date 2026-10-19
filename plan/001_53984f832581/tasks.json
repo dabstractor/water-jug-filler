@@ -18,28 +18,45 @@
               "type": "Task",
               "id": "P1.M1.T1",
               "title": "Project scaffold with config.h and native test seam",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Two-file firmware foundation per PRD section 3, plus the auxiliary native test environment that later subtasks rely on for TDD.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T1.S1",
                   "title": "Author config.h with every section-8 tunable",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [],
-                  "prd_selectors": ["h2.8", "h3.0", "h2.4", "h3.3", "h2.6", "h3.7", "h2.7", "h2.3", "h2.10"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Repo is greenfield (plan/001_53984f832581/architecture/system_context.md) — this is the first firmware file. Verified from arduino-pico docs (plan/001_53984f832581/architecture/external_deps.md): analogRead defaults to 10-bit; PRD section 8 thresholds are 12-bit counts, so config.h must additionally carry ADC_BITS=12 (sketch calls analogReadResolution(12) — see P1.M3.T1.S2).\n2. INPUT: None (root subtask). PRD section 8 defaults verbatim; pin map section 2.1 (PIN_SENSOR1=26/A0, PIN_SENSOR2=27/A1, PIN_VALVE=15, PIN_LED=14).\n3. LOGIC: Create firmware/config.h with grouped, unit-commented constexpr constants: Pins; Button (BUTTON_LONG_PRESS_MS=1000, BUTTON_DEBOUNCE_MS=40); Fill backstop (FRESH_BOOT_BACKSTOP_MIN=30, BACKSTOP_TABLE_MIN as a constexpr array of {recoveryMin, backstopMin} pairs {{2,44},{10,41},{20,38},{35,34},{60,30}}, PLUS5_MIN=5); Windows (CONFIRM_WINDOW_S=12, EARLY_WET_WINDOW_S=5, TRIP_MIN_ELAPSED_S=60); ADC/sensors (ADC_BITS=12, ADC_SAMPLES_PER_READING=32, READING_INTERVAL_MS=100, BASELINE_SETTLE_MS=2000, BASELINE_MIN=2000, BASELINE_MAX=4050, TRIP_DROP_COUNTS=350, DEBOUNCE_COUNT=8); LED patterns (DONE_PULSE_ON_MS/OFF_MS=200, DONE_PULSE_COUNT=3, DONE_GAP_MS=1000, FAULT_BLINK_MS=250, FAULT_PAUSE_MS=2000, ACK_BLINK_MS=100, USE_ONBOARD_RGB=true, RGB_BRIGHTNESS=60); Platform (SERIAL_BAUD=115200, WATCHDOG_TIMEOUT_S=8). constexpr (not #define) so native tests can static_assert. Constants only — no functions.\n4. OUTPUT: firmware/config.h includable by the sketch (P1.M1.T1.S2) and by every native test; single source of every tunable for all downstream subtasks.\n5. DOCS: Mode A — the grouped unit-commented constants ARE the documentation surface (PRD section 8 'one place'); no separate doc file."
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Repo is greenfield (plan/001_53984f832581/architecture/system_context.md) — this is the first firmware file. Verified from arduino-pico docs (plan/001_53984f832581/architecture/external_deps.md): analogRead defaults to 10-bit; PRD section 8 thresholds are 12-bit counts, so config.h must additionally carry ADC_BITS=12 (sketch calls analogReadResolution(12) — see P1.M3.T1.S2).\n2. INPUT: None (root subtask). PRD section 8 defaults verbatim; pin map section 2.1 (PIN_SENSOR1=26/A0, PIN_SENSOR2=27/A1, PIN_VALVE=15, PIN_LED=14).\n3. LOGIC: Create firmware/config.h with grouped, unit-commented constexpr constants: Pins; Button (BUTTON_LONG_PRESS_MS=1000, BUTTON_DEBOUNCE_MS=40); Fill backstop (FRESH_BOOT_BACKSTOP_MIN=30, BACKSTOP_TABLE_MIN as a constexpr array of {recoveryMin, backstopMin} pairs {{2,44},{10,41},{20,38},{35,34},{60,30}}, PLUS5_MIN=5); Windows (CONFIRM_WINDOW_S=12, EARLY_WET_WINDOW_S=5, TRIP_MIN_ELAPSED_S=60); ADC/sensors (ADC_BITS=12, ADC_SAMPLES_PER_READING=32, READING_INTERVAL_MS=100, BASELINE_SETTLE_MS=2000, BASELINE_MIN=2000, BASELINE_MAX=4050, TRIP_DROP_COUNTS=350, DEBOUNCE_COUNT=8); LED patterns (DONE_PULSE_ON_MS/OFF_MS=200, DONE_PULSE_COUNT=3, DONE_GAP_MS=1000, FAULT_BLINK_MS=250, FAULT_PAUSE_MS=2000, ACK_BLINK_MS=100, USE_ONBOARD_RGB=true, RGB_BRIGHTNESS=60); Platform (SERIAL_BAUD=115200, WATCHDOG_TIMEOUT_S=8). constexpr (not #define) so native tests can static_assert. Constants only — no functions.\n4. OUTPUT: firmware/config.h includable by the sketch (P1.M1.T1.S2) and by every native test; single source of every tunable for all downstream subtasks.\n5. DOCS: Mode A — the grouped unit-commented constants ARE the documentation surface (PRD section 8 'one place'); no separate doc file.",
+                  "prd_selectors": [
+                    "h2.8",
+                    "h3.0",
+                    "h2.4",
+                    "h3.3",
+                    "h2.6",
+                    "h3.7",
+                    "h2.7",
+                    "h2.3",
+                    "h2.10"
+                  ]
                 },
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T1.S2",
                   "title": "Dual-build skeleton (Arduino IDE + PlatformIO) with proven native test seam",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
-                  "dependencies": ["P1.M1.T1.S1"],
-                  "prd_selectors": ["h2.3", "h2.10", "h3.0", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: PRD section 3 requires the firmware to be TWO files (sketch + config.h) that build in BOTH Arduino IDE (arduino-pico core, board 'Waveshare RP2040-Zero') and optionally PlatformIO (platform raspberrypi, board waveshare_rp2040_zero; verify the board id resolves at build time — fallback: generic pico board def). Recommended layout (plan/001_53984f832581/architecture/external_deps.md and firmware_architecture.md): firmware/ sketch folder containing jug_filler.ino + config.h; platformio.ini at repo root with [platformio] src_dir/firmware plus [env:pico] and [env:native] (platform=native, Unity). Native seam: ALL hardware-touching code (setup/loop, pinMode/digitalWrite/analogRead, Serial, WS2812, watchdog) inside #ifdef ARDUINO; ALL pure logic unguarded; test/*.cpp files #include the .ino (it is plain C++ with explicit prototypes, so g++ compiles it).\n2. INPUT: firmware/config.h from P1.M1.T1.S1.\n3. LOGIC: Create the layout. Minimal sketch: setup() line 1 drives PIN_VALVE LOW (section 10 invariant), then pinMode outputs (valve, LED off), Serial.begin(SERIAL_BAUD), analogReadResolution(ADC_BITS); loop() safe placeholder. One trivial native Unity test (test/test_seam.cpp) asserting config constants — proving 'pio test -e native' is green BEFORE any logic lands. Mock: native env needs no hardware; pico env is compile-only here (no upload).\n4. OUTPUT: buildable skeleton + green native test run + the seam contract documented in the .ino header comment; every later pure-logic subtask lands in the unguarded region.\n5. DOCS: Mode A — seed README.md with build instructions (Arduino IDE + PlatformIO + native tests); expanded later by P2.M1.T3.S1."
+                  "dependencies": [
+                    "P1.M1.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: PRD section 3 requires the firmware to be TWO files (sketch + config.h) that build in BOTH Arduino IDE (arduino-pico core, board 'Waveshare RP2040-Zero') and optionally PlatformIO (platform raspberrypi, board waveshare_rp2040_zero; verify the board id resolves at build time — fallback: generic pico board def). Recommended layout (plan/001_53984f832581/architecture/external_deps.md and firmware_architecture.md): firmware/ sketch folder containing jug_filler.ino + config.h; platformio.ini at repo root with [platformio] src_dir/firmware plus [env:pico] and [env:native] (platform=native, Unity). Native seam: ALL hardware-touching code (setup/loop, pinMode/digitalWrite/analogRead, Serial, WS2812, watchdog) inside #ifdef ARDUINO; ALL pure logic unguarded; test/*.cpp files #include the .ino (it is plain C++ with explicit prototypes, so g++ compiles it).\n2. INPUT: firmware/config.h from P1.M1.T1.S1.\n3. LOGIC: Create the layout. Minimal sketch: setup() line 1 drives PIN_VALVE LOW (section 10 invariant), then pinMode outputs (valve, LED off), Serial.begin(SERIAL_BAUD), analogReadResolution(ADC_BITS); loop() safe placeholder. One trivial native Unity test (test/test_seam.cpp) asserting config constants — proving 'pio test -e native' is green BEFORE any logic lands. Mock: native env needs no hardware; pico env is compile-only here (no upload).\n4. OUTPUT: buildable skeleton + green native test run + the seam contract documented in the .ino header comment; every later pure-logic subtask lands in the unguarded region.\n5. DOCS: Mode A — seed README.md with build instructions (Arduino IDE + PlatformIO + native tests); expanded later by P2.M1.T3.S1.",
+                  "prd_selectors": [
+                    "h2.3",
+                    "h2.10",
+                    "h3.0",
+                    "h2.8"
+                  ]
                 }
               ]
             },
@@ -56,9 +73,14 @@
                   "title": "Rollover-safe time utilities (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M1.T1.S2"],
-                  "prd_selectors": ["h2.10", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: millis() is uint32_t wrapping ~49.7 days; the rollover-safe pattern (uint32_t)(now - since) >= interval is standard on arduino-pico (plan/001_53984f832581/architecture/external_deps.md). Section 10 forbids delay(); all timing must flow through these helpers.\n2. INPUT: Seam from P1.M1.T1.S2; config.h constants.\n3. LOGIC: Pure, unguarded helpers in the sketch: uint32_t elapsedMs(uint32_t now, uint32_t since) and bool deadlinePassed(uint32_t now, uint32_t deadline). Clock is ALWAYS an injected parameter — no millis() calls inside logic. Native tests: wrap boundary 0xFFFFFFFF to 0x00000000, equality (0 elapsed), 1ms-after-deadline, large spans.\n4. OUTPUT: helpers consumed by button service (P1.M2), sensor chain (P1.M3), timer model (P1.M4), LED engine (P1.M5), state machine (P1.M6).\n5. DOCS: none — internal helpers, no user-facing/config/API surface change."
+                  "dependencies": [
+                    "P1.M1.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: millis() is uint32_t wrapping ~49.7 days; the rollover-safe pattern (uint32_t)(now - since) >= interval is standard on arduino-pico (plan/001_53984f832581/architecture/external_deps.md). Section 10 forbids delay(); all timing must flow through these helpers.\n2. INPUT: Seam from P1.M1.T1.S2; config.h constants.\n3. LOGIC: Pure, unguarded helpers in the sketch: uint32_t elapsedMs(uint32_t now, uint32_t since) and bool deadlinePassed(uint32_t now, uint32_t deadline). Clock is ALWAYS an injected parameter — no millis() calls inside logic. Native tests: wrap boundary 0xFFFFFFFF to 0x00000000, equality (0 elapsed), 1ms-after-deadline, large spans.\n4. OUTPUT: helpers consumed by button service (P1.M2), sensor chain (P1.M3), timer model (P1.M4), LED engine (P1.M5), state machine (P1.M6).\n5. DOCS: none — internal helpers, no user-facing/config/API surface change.",
+                  "prd_selectors": [
+                    "h2.10",
+                    "h2.8"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -66,9 +88,16 @@
                   "title": "Hardware watchdog service and unplug-safe serial logging",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M1.T1.S2"],
-                  "prd_selectors": ["h2.10", "h2.8", "h2.3", "h3.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Verified from pico-sdk hardware/watchdog.h (shipped inside arduino-pico — plan/001_53984f832581/architecture/external_deps.md): watchdog_enable(delay_ms, pause_on_debug) with RP2040 MAXIMUM 8388 ms, so WATCHDOG_TIMEOUT_S=8 (8000 ms) is legal; watchdog_update() feeds; watchdog_caused_reboot() reports reset cause. In service the board runs from the buck with USB unplugged (section 2.2) — logging must never stall the loop when no USB host is attached (never while(!Serial), keep writes small).\n2. INPUT: Skeleton setup()/loop() from P1.M1.T1.S2; config WATCHDOG_TIMEOUT_S, SERIAL_BAUD.\n3. LOGIC: In the ARDUINO region: setup() enables the watchdog AFTER the first-line valve LOW; loop() calls watchdog_update() as its first statement each pass (section 10). Add logLine(const char* fmt, ...) wrapper over Serial — small, newline-terminated — plus boot banner logging reboot cause via watchdog_caused_reboot(). Mock: hardware watchdog cannot be native-tested; any pure formatting helper is split out and tested.\n4. OUTPUT: supervised loop + logLine() used by all later logging subtasks (P1.M2.T2.S1, P1.M3.T1.S2, P1.M6.T2.S1).\n5. DOCS: none — no config surface change; logging formats documented at P2.M1.T1.S1."
+                  "dependencies": [
+                    "P1.M1.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Verified from pico-sdk hardware/watchdog.h (shipped inside arduino-pico — plan/001_53984f832581/architecture/external_deps.md): watchdog_enable(delay_ms, pause_on_debug) with RP2040 MAXIMUM 8388 ms, so WATCHDOG_TIMEOUT_S=8 (8000 ms) is legal; watchdog_update() feeds; watchdog_caused_reboot() reports reset cause. In service the board runs from the buck with USB unplugged (section 2.2) — logging must never stall the loop when no USB host is attached (never while(!Serial), keep writes small).\n2. INPUT: Skeleton setup()/loop() from P1.M1.T1.S2; config WATCHDOG_TIMEOUT_S, SERIAL_BAUD.\n3. LOGIC: In the ARDUINO region: setup() enables the watchdog AFTER the first-line valve LOW; loop() calls watchdog_update() as its first statement each pass (section 10). Add logLine(const char* fmt, ...) wrapper over Serial — small, newline-terminated — plus boot banner logging reboot cause via watchdog_caused_reboot(). Mock: hardware watchdog cannot be native-tested; any pure formatting helper is split out and tested.\n4. OUTPUT: supervised loop + logLine() used by all later logging subtasks (P1.M2.T2.S1, P1.M3.T1.S2, P1.M6.T2.S1).\n5. DOCS: none — no config surface change; logging formats documented at P2.M1.T1.S1.",
+                  "prd_selectors": [
+                    "h2.10",
+                    "h2.8",
+                    "h2.3",
+                    "h3.5"
+                  ]
                 }
               ]
             }
@@ -94,9 +123,16 @@
                   "title": "ButtonClassifier: 40ms debounce, 1000ms long threshold, events on release (pure)",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M1.T2.S1"],
-                  "prd_selectors": ["h2.5", "h3.3", "h2.8", "h2.4"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 5.1: contact debounce 40 ms (BUTTON_DEBOUNCE_MS); a press is long if held >= 1000 ms (BUTTON_LONG_PRESS_MS); BOTH short and long actions fire on RELEASE. Section 4 transient ack also keys off the long press.\n2. INPUT: Time utilities from P1.M1.T2.S1; config constants from P1.M1.T1.S1.\n3. LOGIC: Pure class ButtonClassifier with enum Event {None, ShortPress, LongPress}; method Event update(uint32_t nowMs, bool pressedRaw). Internally: debounce via stable-sample tracking over 40 ms; hold time measured from debounced press start; on debounced release emit Short (hold < 1000) or Long (hold >= 1000); reset for next press. Injected clock; zero hardware calls. Native tests: sub-40ms bounce spikes ignored; short release; long release; hold exactly 1000 ms -> Long; release at 999 ms -> Short; no event while still held; back-to-back presses.\n4. OUTPUT: Event stream consumed by the fill state machine core (P1.M6.T1.S1) and hardware wiring (P1.M2.T2.S1).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 5.1: contact debounce 40 ms (BUTTON_DEBOUNCE_MS); a press is long if held >= 1000 ms (BUTTON_LONG_PRESS_MS); BOTH short and long actions fire on RELEASE. Section 4 transient ack also keys off the long press.\n2. INPUT: Time utilities from P1.M1.T2.S1; config constants from P1.M1.T1.S1.\n3. LOGIC: Pure class ButtonClassifier with enum Event {None, ShortPress, LongPress}; method Event update(uint32_t nowMs, bool pressedRaw). Internally: debounce via stable-sample tracking over 40 ms; hold time measured from debounced press start; on debounced release emit Short (hold < 1000) or Long (hold >= 1000); reset for next press. Injected clock; zero hardware calls. Native tests: sub-40ms bounce spikes ignored; short release; long release; hold exactly 1000 ms -> Long; release at 999 ms -> Short; no event while still held; back-to-back presses.\n4. OUTPUT: Event stream consumed by the fill state machine core (P1.M6.T1.S1) and hardware wiring (P1.M2.T2.S1).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.5",
+                    "h3.3",
+                    "h2.8",
+                    "h2.4"
+                  ]
                 }
               ]
             },
@@ -113,9 +149,18 @@
                   "title": "Poll BOOTSEL bool object into classifier with event logging",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M2.T1.S1", "P1.M1.T2.S2"],
-                  "prd_selectors": ["h3.0", "h3.3", "h3.4", "h2.5", "h2.3"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE (BINDING PRD CORRECTION): Verified from arduino-pico source cores/rp2040/Bootsel.cpp (plan/001_53984f832581/architecture/external_deps.md): BOOTSEL is a global __Bootsel OBJECT with operator bool() returning TRUE when pressed. PRD section 2.1's pinMode(BOOTSEL, INPUT_PULLUP) / digitalRead(BOOTSEL) pseudo-pin pattern DOES NOT EXIST in this core and would silently configure/read GPIO 0-1. Correct pattern: bool pressed = BOOTSEL; sampled each loop pass — no pinMode needed. Reading it can never enter the bootloader (bootloader entry requires BOOTSEL held during RESET), matching the PRD's intent.\n2. INPUT: ButtonClassifier from P1.M2.T1.S1; logLine() from P1.M1.T2.S2; skeleton loop from P1.M1.T1.S2.\n3. LOGIC: In the ARDUINO region: each loop pass sample BOOTSEL (true = pressed), feed classifier, log each event with hold duration via logLine (e.g. 'BTN short 213ms' / 'BTN long 1024ms'). Mock: none on device; classifier behavior is native-tested in P1.M2.T1.S1. Bench check (USB power only, buck disconnected per section 2.2): press/release/hold-1s produces correct log lines.\n4. OUTPUT: hardware-sourced ButtonEvent stream consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — log lines only; README operation section handled by P2.M1.T3.S1."
+                  "dependencies": [
+                    "P1.M2.T1.S1",
+                    "P1.M1.T2.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE (BINDING PRD CORRECTION): Verified from arduino-pico source cores/rp2040/Bootsel.cpp (plan/001_53984f832581/architecture/external_deps.md): BOOTSEL is a global __Bootsel OBJECT with operator bool() returning TRUE when pressed. PRD section 2.1's pinMode(BOOTSEL, INPUT_PULLUP) / digitalRead(BOOTSEL) pseudo-pin pattern DOES NOT EXIST in this core and would silently configure/read GPIO 0-1. Correct pattern: bool pressed = BOOTSEL; sampled each loop pass — no pinMode needed. Reading it can never enter the bootloader (bootloader entry requires BOOTSEL held during RESET), matching the PRD's intent.\n2. INPUT: ButtonClassifier from P1.M2.T1.S1; logLine() from P1.M1.T2.S2; skeleton loop from P1.M1.T1.S2.\n3. LOGIC: In the ARDUINO region: each loop pass sample BOOTSEL (true = pressed), feed classifier, log each event with hold duration via logLine (e.g. 'BTN short 213ms' / 'BTN long 1024ms'). Mock: none on device; classifier behavior is native-tested in P1.M2.T1.S1. Bench check (USB power only, buck disconnected per section 2.2): press/release/hold-1s produces correct log lines.\n4. OUTPUT: hardware-sourced ButtonEvent stream consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — log lines only; README operation section handled by P2.M1.T3.S1.",
+                  "prd_selectors": [
+                    "h3.0",
+                    "h3.3",
+                    "h3.4",
+                    "h2.5",
+                    "h2.3"
+                  ]
                 }
               ]
             }
@@ -141,9 +186,14 @@
                   "title": "ReadingAggregator + median helper (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M1.T2.S1"],
-                  "prd_selectors": ["h2.8", "h2.7"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 8: ADC_SAMPLES_PER_READING=32 samples averaged per reading; one reading pair per READING_INTERVAL_MS=100 ms; section 7.1 baselines are the MEDIAN of averaged readings.\n2. INPUT: Time utilities from P1.M1.T2.S1; config constants from P1.M1.T1.S1.\n3. LOGIC: Pure class ReadingAggregator: addSample(uint8_t sensor, uint16_t counts, uint32_t nowMs); bool readingDue(uint32_t nowMs); on due, emit averaged pair (avg1, avg2) computed over the last 32 samples (pre-fill with first sample so readings are valid before 32 collect). Plus free function uint16_t medianOf(uint16_t* values, size_t n) for baselines. Injected clock; no hardware. Native tests: exact averaging; cadence with injected clock incl. wrap; under-fill warmup; median odd/even; single-outlier robustness.\n4. OUTPUT: averaged-reading stream consumed by baseline (P1.M3.T2.S1), trip detectors (P1.M3.T3.S1, P1.M3.T3.S2) and the fill engine (P1.M6.T1.S2).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 8: ADC_SAMPLES_PER_READING=32 samples averaged per reading; one reading pair per READING_INTERVAL_MS=100 ms; section 7.1 baselines are the MEDIAN of averaged readings.\n2. INPUT: Time utilities from P1.M1.T2.S1; config constants from P1.M1.T1.S1.\n3. LOGIC: Pure class ReadingAggregator: addSample(uint8_t sensor, uint16_t counts, uint32_t nowMs); bool readingDue(uint32_t nowMs); on due, emit averaged pair (avg1, avg2) computed over the last 32 samples (pre-fill with first sample so readings are valid before 32 collect). Plus free function uint16_t medianOf(uint16_t* values, size_t n) for baselines. Injected clock; no hardware. Native tests: exact averaging; cadence with injected clock incl. wrap; under-fill warmup; median odd/even; single-outlier robustness.\n4. OUTPUT: averaged-reading stream consumed by baseline (P1.M3.T2.S1), trip detectors (P1.M3.T3.S1, P1.M3.T3.S2) and the fill engine (P1.M6.T1.S2).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.8",
+                    "h2.7"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -151,9 +201,17 @@
                   "title": "ADC hardware wiring: 12-bit resolution + raw-count commissioning log",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M3.T1.S1", "P1.M1.T2.S2"],
-                  "prd_selectors": ["h3.0", "h2.8", "h2.9", "h2.7"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE (BINDING): Verified from arduino-pico analog docs (plan/001_53984f832581/architecture/external_deps.md): analogRead DEFAULTS TO 10-BIT; analogReadResolution(int bits) exists. PRD section 8 thresholds (BASELINE_MIN=2000, BASELINE_MAX=4050, TRIP_DROP_COUNTS=350) are 12-bit counts — WITHOUT analogReadResolution(12) every dry baseline would read ~0-1023 and every fill would baseline-fault. Sensors: GP26=A0/ADC0, GP27=A1/ADC1 (GP26-GP29 are the only ADC-capable pins), 3.3 V full-scale reads ~4095.\n2. INPUT: ReadingAggregator from P1.M3.T1.S1; skeleton + logLine from P1.M1.T1.S2 / P1.M1.T2.S2.\n3. LOGIC: In the ARDUINO region: setup() calls analogReadResolution(ADC_BITS); loop() samples analogRead(PIN_SENSOR1)/(PIN_SENSOR2) and feeds the aggregator; periodic (1 Hz) raw-count log line 'S1=<counts> S2=<counts>' for commissioning (section 9.3 dry/wet observation). Mock: device-only; aggregator math native-tested in P1.M3.T1.S1.\n4. OUTPUT: live averaged readings + raw-count logging consumed by the integration loop (P1.M6.T2.S1) and commissioning audit (P2.M1.T1.S1).\n5. DOCS: Mode A — ensure the config.h ADC group comment states the 12-bit requirement and that counts assume 3.3 V full-scale."
+                  "dependencies": [
+                    "P1.M3.T1.S1",
+                    "P1.M1.T2.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE (BINDING): Verified from arduino-pico analog docs (plan/001_53984f832581/architecture/external_deps.md): analogRead DEFAULTS TO 10-BIT; analogReadResolution(int bits) exists. PRD section 8 thresholds (BASELINE_MIN=2000, BASELINE_MAX=4050, TRIP_DROP_COUNTS=350) are 12-bit counts — WITHOUT analogReadResolution(12) every dry baseline would read ~0-1023 and every fill would baseline-fault. Sensors: GP26=A0/ADC0, GP27=A1/ADC1 (GP26-GP29 are the only ADC-capable pins), 3.3 V full-scale reads ~4095.\n2. INPUT: ReadingAggregator from P1.M3.T1.S1; skeleton + logLine from P1.M1.T1.S2 / P1.M1.T2.S2.\n3. LOGIC: In the ARDUINO region: setup() calls analogReadResolution(ADC_BITS); loop() samples analogRead(PIN_SENSOR1)/(PIN_SENSOR2) and feeds the aggregator; periodic (1 Hz) raw-count log line 'S1=<counts> S2=<counts>' for commissioning (section 9.3 dry/wet observation). Mock: device-only; aggregator math native-tested in P1.M3.T1.S1.\n4. OUTPUT: live averaged readings + raw-count logging consumed by the integration loop (P1.M6.T2.S1) and commissioning audit (P2.M1.T1.S1).\n5. DOCS: Mode A — ensure the config.h ADC group comment states the 12-bit requirement and that counts assume 3.3 V full-scale.",
+                  "prd_selectors": [
+                    "h3.0",
+                    "h2.8",
+                    "h2.9",
+                    "h2.7"
+                  ]
                 }
               ]
             },
@@ -170,9 +228,15 @@
                   "title": "BaselineCapture: 2s settle, median-of-averages, BASELINE_MIN..MAX check (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M3.T1.S1"],
-                  "prd_selectors": ["h2.7", "h2.8", "h2.9"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.1: settle BASELINE_SETTLE_MS=2000 ms with the valve still closed, then read both sensors' dry baselines as the median of averaged readings; if either is outside BASELINE_MIN=2000..BASELINE_MAX=4050 counts, fault that sensor and REFUSE to open the valve (this also catches accidental starts with the jug already full / tips wet — expected dry range ~3000-3900 counts per section 9.3).\n2. INPUT: Averaged readings from P1.M3.T1.S1 (ReadingAggregator + medianOf); time utilities P1.M1.T2.S1; config constants.\n3. LOGIC: Pure class BaselineCapture: begin(uint32_t nowMs); phase Settle for 2000 ms (no baseline collection before it elapses — abort during settle is the FSM's business, P1.M6.T1.S2); then collect N=5 averaged readings per sensor; finish with per-sensor verdict enum {Ok, TooLow, TooHigh} and baseline values. Native tests: settle not shortcut at 1999 ms; boundary counts 2000 and 4050 inclusive pass; 1999/4051 fail; both-sensors-bad; median robust to one outlier reading.\n4. OUTPUT: per-sensor plausibility verdicts + baseline values consumed by TripDetector (P1.M3.T3.S1) and the fill engine baseline phase (P1.M6.T1.S2, P1.M6.T1.S3 fault code path).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M3.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.1: settle BASELINE_SETTLE_MS=2000 ms with the valve still closed, then read both sensors' dry baselines as the median of averaged readings; if either is outside BASELINE_MIN=2000..BASELINE_MAX=4050 counts, fault that sensor and REFUSE to open the valve (this also catches accidental starts with the jug already full / tips wet — expected dry range ~3000-3900 counts per section 9.3).\n2. INPUT: Averaged readings from P1.M3.T1.S1 (ReadingAggregator + medianOf); time utilities P1.M1.T2.S1; config constants.\n3. LOGIC: Pure class BaselineCapture: begin(uint32_t nowMs); phase Settle for 2000 ms (no baseline collection before it elapses — abort during settle is the FSM's business, P1.M6.T1.S2); then collect N=5 averaged readings per sensor; finish with per-sensor verdict enum {Ok, TooLow, TooHigh} and baseline values. Native tests: settle not shortcut at 1999 ms; boundary counts 2000 and 4050 inclusive pass; 1999/4051 fail; both-sensors-bad; median robust to one outlier reading.\n4. OUTPUT: per-sensor plausibility verdicts + baseline values consumed by TripDetector (P1.M3.T3.S1) and the fill engine baseline phase (P1.M6.T1.S2, P1.M6.T1.S3 fault code path).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.7",
+                    "h2.8",
+                    "h2.9"
+                  ]
                 }
               ]
             },
@@ -189,9 +253,14 @@
                   "title": "TripDetector: baseline-350 for 8 consecutive readings (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M3.T2.S1"],
-                  "prd_selectors": ["h2.7", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.3: an AVERAGED reading at or below (baseline - TRIP_DROP_COUNTS=350) for DEBOUNCE_COUNT=8 consecutive readings = that sensor tripped.\n2. INPUT: Baselines from P1.M3.T2.S1; averaged readings from P1.M3.T1.S1.\n3. LOGIC: Pure class TripDetector (one instance per sensor): void feed(uint16_t avg); bool tripped() — latched once tripped for the remainder of the fill; streak resets to zero on any reading strictly above the threshold. Native tests: exactly-8 streak trips; 7 qualifying readings then one above threshold resets the streak; boundary value exactly baseline-350 qualifies (inclusive); no re-trip noise after latch; sensor1/sensor2 independence.\n4. OUTPUT: per-sensor latched tripped flags consumed by the fill engine (P1.M6.T1.S2) and guards (P1.M3.T3.S2).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M3.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.3: an AVERAGED reading at or below (baseline - TRIP_DROP_COUNTS=350) for DEBOUNCE_COUNT=8 consecutive readings = that sensor tripped.\n2. INPUT: Baselines from P1.M3.T2.S1; averaged readings from P1.M3.T1.S1.\n3. LOGIC: Pure class TripDetector (one instance per sensor): void feed(uint16_t avg); bool tripped() — latched once tripped for the remainder of the fill; streak resets to zero on any reading strictly above the threshold. Native tests: exactly-8 streak trips; 7 qualifying readings then one above threshold resets the streak; boundary value exactly baseline-350 qualifies (inclusive); no re-trip noise after latch; sensor1/sensor2 independence.\n4. OUTPUT: per-sensor latched tripped flags consumed by the fill engine (P1.M6.T1.S2) and guards (P1.M3.T3.S2).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.7",
+                    "h2.8"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -199,9 +268,15 @@
                   "title": "False-trip guards: TRIP_MIN_ELAPSED_S and EARLY_WET_WINDOW_S (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M3.T3.S1", "P1.M1.T2.S1"],
-                  "prd_selectors": ["h2.7", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.6: any trip accepted before TRIP_MIN_ELAPSED_S=60 s of fill time, or any sensor reading wet during the first EARLY_WET_WINDOW_S=5 s, is a false trip / short -> fault that sensor. 'Wet' means at/below baseline - TRIP_DROP_COUNTS (same predicate as the trip rule).\n2. INPUT: TripDetector from P1.M3.T3.S1; averaged readings; time utilities P1.M1.T2.S1; the valve-open timestamp will be supplied by the fill engine (P1.M6.T1.S2) — accept it as a parameter, do not track it here.\n3. LOGIC: Pure guard functions: GuardVerdict evaluate(uint32_t nowMs, uint32_t valveOpenedAtMs, TripState s1, TripState s2, Reading avg1, Reading avg2) -> {Ok, EarlyTripFault(sensor), EarlyWetFault(sensor)}. 'Fill time' = time since valveOpenedAt. Native tests: trip at 59.9 s -> EarlyTripFault, at exactly 60.0 s -> Ok; wet reading at 4.9 s -> EarlyWetFault, at 5.1 s -> Ok; both sensors clean -> Ok; wrap-safe timestamps.\n4. OUTPUT: guard verdicts consumed by the fill engine fault paths (P1.M6.T1.S2, P1.M6.T1.S3).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M3.T3.S1",
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7.6: any trip accepted before TRIP_MIN_ELAPSED_S=60 s of fill time, or any sensor reading wet during the first EARLY_WET_WINDOW_S=5 s, is a false trip / short -> fault that sensor. 'Wet' means at/below baseline - TRIP_DROP_COUNTS (same predicate as the trip rule).\n2. INPUT: TripDetector from P1.M3.T3.S1; averaged readings; time utilities P1.M1.T2.S1; the valve-open timestamp will be supplied by the fill engine (P1.M6.T1.S2) — accept it as a parameter, do not track it here.\n3. LOGIC: Pure guard functions: GuardVerdict evaluate(uint32_t nowMs, uint32_t valveOpenedAtMs, TripState s1, TripState s2, Reading avg1, Reading avg2) -> {Ok, EarlyTripFault(sensor), EarlyWetFault(sensor)}. 'Fill time' = time since valveOpenedAt. Native tests: trip at 59.9 s -> EarlyTripFault, at exactly 60.0 s -> Ok; wet reading at 4.9 s -> EarlyWetFault, at 5.1 s -> Ok; both sensors clean -> Ok; wrap-safe timestamps.\n4. OUTPUT: guard verdicts consumed by the fill engine fault paths (P1.M6.T1.S2, P1.M6.T1.S3).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.7",
+                    "h2.8"
+                  ]
                 }
               ]
             }
@@ -227,9 +302,15 @@
                   "title": "backstopMinutes(): piecewise-linear interp with clamps (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M1.T1.S1"],
-                  "prd_selectors": ["h3.7", "h2.6", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 6.2 table {{2,44},{10,41},{20,38},{35,34},{60,30}} minutes, piecewise-linear BETWEEN points, clamped at both ends (recovery <= 2 min -> 44; >= 60 min -> 30). The concave shape is deliberate (tank refills fast then slows); a straight line pads the mid-range in exactly the wrong direction — interpolate between the given knots only, add no smoothing or safety padding.\n2. INPUT: BACKSTOP_TABLE_MIN from config.h (P1.M1.T1.S1).\n3. LOGIC: Pure function uint32_t backstopMinutes(uint32_t recoveryMin): linear interpolation between adjacent knots, clamped outside. Define rounding explicitly (floor to whole minutes) and document it in a comment. Native tests: exact values at all 5 knots; recovery 0/1/2 -> 44; 60/120/1440 -> 30; midpoints (e.g. recovery 6 -> between 44 and 41; 15 -> between 41 and 38); property: result is monotone non-increasing over recovery.\n4. OUTPUT: minutes value consumed by the recovery-clock/deadline task (P1.M4.T2.S1).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M1.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 6.2 table {{2,44},{10,41},{20,38},{35,34},{60,30}} minutes, piecewise-linear BETWEEN points, clamped at both ends (recovery <= 2 min -> 44; >= 60 min -> 30). The concave shape is deliberate (tank refills fast then slows); a straight line pads the mid-range in exactly the wrong direction — interpolate between the given knots only, add no smoothing or safety padding.\n2. INPUT: BACKSTOP_TABLE_MIN from config.h (P1.M1.T1.S1).\n3. LOGIC: Pure function uint32_t backstopMinutes(uint32_t recoveryMin): linear interpolation between adjacent knots, clamped outside. Define rounding explicitly (floor to whole minutes) and document it in a comment. Native tests: exact values at all 5 knots; recovery 0/1/2 -> 44; 60/120/1440 -> 30; midpoints (e.g. recovery 6 -> between 44 and 41; 15 -> between 41 and 38); property: result is monotone non-increasing over recovery.\n4. OUTPUT: minutes value consumed by the recovery-clock/deadline task (P1.M4.T2.S1).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h3.7",
+                    "h2.6",
+                    "h2.8"
+                  ]
                 }
               ]
             },
@@ -246,9 +327,19 @@
                   "title": "RecoveryClock + FillDeadline: fresh-boot default, valve-open anchor, stacking +5 (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M4.T1.S1", "P1.M1.T2.S1"],
-                  "prd_selectors": ["h3.6", "h3.7", "h2.6", "h3.3", "h3.5", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 6.1 (RAM only — no persistence, section 3): reference point = the moment the PREVIOUS fill's valve closed (fill end, whatever ended it — done, abort, or fault); recovery for a new fill = wall-clock time since that reference; fresh boot / any reset -> no history -> FRESH_BOOT_BACKSTOP_MIN=30. Section 6.2: every fill's backstop is computed ONCE at fill start; a long-press +5 (PLUS5_MIN, section 5.1) modifies only the ACTIVE fill's deadline, stacks, repeatable. Section 6 preamble: the backstop bounds how long the VALVE may stay open — anchor the deadline at the valve-open instant, not at the button press (the 2 s baseline settle precedes valve open). Section 5.3: any reset clears history (trivially true for RAM state — document it).\n2. INPUT: backstopMinutes() from P1.M4.T1.S1; time utilities P1.M1.T2.S1; config constants.\n3. LOGIC: Pure classes: RecoveryClock { recordFillEnd(uint32_t nowMs); bool hasHistory(); uint32_t recoveryMs(uint32_t nowMs); } and FillDeadline { computed at fill start via recoveryMs->backstopMinutes; anchor(uint32_t valveOpenedAtMs); bool expired(uint32_t nowMs); void extend5(); } with extend5 stacking (each call adds PLUS5_MIN). Native tests: fresh boot -> 30 min; history at 15 min recovery -> interpolated value (~36-37, assert computed); abort resets reference at abort instant; +5 twice moves deadline exactly 10 min; deadline expiry boundary; wrap-safe arithmetic.\n4. OUTPUT: backstop/deadline objects consumed by the fill engine (P1.M6.T1.S2) and its +5 long-press handling; log inputs (recovery, table result, deadline) exposed for the backstop computation log line (section 3).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M4.T1.S1",
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 6.1 (RAM only — no persistence, section 3): reference point = the moment the PREVIOUS fill's valve closed (fill end, whatever ended it — done, abort, or fault); recovery for a new fill = wall-clock time since that reference; fresh boot / any reset -> no history -> FRESH_BOOT_BACKSTOP_MIN=30. Section 6.2: every fill's backstop is computed ONCE at fill start; a long-press +5 (PLUS5_MIN, section 5.1) modifies only the ACTIVE fill's deadline, stacks, repeatable. Section 6 preamble: the backstop bounds how long the VALVE may stay open — anchor the deadline at the valve-open instant, not at the button press (the 2 s baseline settle precedes valve open). Section 5.3: any reset clears history (trivially true for RAM state — document it).\n2. INPUT: backstopMinutes() from P1.M4.T1.S1; time utilities P1.M1.T2.S1; config constants.\n3. LOGIC: Pure classes: RecoveryClock { recordFillEnd(uint32_t nowMs); bool hasHistory(); uint32_t recoveryMs(uint32_t nowMs); } and FillDeadline { computed at fill start via recoveryMs->backstopMinutes; anchor(uint32_t valveOpenedAtMs); bool expired(uint32_t nowMs); void extend5(); } with extend5 stacking (each call adds PLUS5_MIN). Native tests: fresh boot -> 30 min; history at 15 min recovery -> interpolated value (~36-37, assert computed); abort resets reference at abort instant; +5 twice moves deadline exactly 10 min; deadline expiry boundary; wrap-safe arithmetic.\n4. OUTPUT: backstop/deadline objects consumed by the fill engine (P1.M6.T1.S2) and its +5 long-press handling; log inputs (recovery, table result, deadline) exposed for the backstop computation log line (section 3).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h3.6",
+                    "h3.7",
+                    "h2.6",
+                    "h3.3",
+                    "h3.5",
+                    "h2.8"
+                  ]
                 }
               ]
             }
@@ -274,9 +365,16 @@
                   "title": "LedPatternEngine: Solid/Off/DonePulse/FaultBlink(n)/AckBlink overlay (pure)",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M1.T2.S1"],
-                  "prd_selectors": ["h2.4", "h2.7", "h3.3", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 4 table: FILLING/CONFIRM external LED solid (WS2812 blue solid); IDLE off; DONE = triple-pulse attention blink 3x(on 200 ms/off 200 ms) then off 1000 ms, repeat, until acknowledged (no timeout, section 11); FAULT = blink-code groups N x(on 250 ms/off 250 ms), off 2000 ms, repeat (N = fault code 1-3, section 7). Transient ack (section 4): on a +5 long-press during FILLING the LED blinks 3x quickly (on 100 ms/off 100 ms) then RESUMES solid — a one-shot overlay, valve stays open, fill timing unaffected.\n2. INPUT: Time utilities P1.M1.T2.S1; config LED constants (DONE_PULSE_*, FAULT_*, ACK_BLINK_MS).\n3. LOGIC: Pure class LedPatternEngine: setMode(Mode) with Mode in {Off, Solid, DonePulse, FaultBlink(uint8_t groups)}; triggerAck() starts the one-shot ack overlay; bool tick(uint32_t nowMs) -> ledOn. All cadences derived from config constants; zero delay(); injected clock. Native tests: done-pulse on/off instants at pattern boundaries and 1000 ms gap repetition; fault groups for n=1,2,3 then 2000 ms pause; ack overlay: 3 blinks in 600 ms then previous mode (Solid) resumes exactly; mode change mid-pattern resets phase cleanly; wrap-safe.\n4. OUTPUT: boolean ledOn stream + mode/ack API consumed by drivers (P1.M5.T2.S1, P1.M5.T3.S1); modes set only by the fill engine (P1.M6.T1.S2).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 4 table: FILLING/CONFIRM external LED solid (WS2812 blue solid); IDLE off; DONE = triple-pulse attention blink 3x(on 200 ms/off 200 ms) then off 1000 ms, repeat, until acknowledged (no timeout, section 11); FAULT = blink-code groups N x(on 250 ms/off 250 ms), off 2000 ms, repeat (N = fault code 1-3, section 7). Transient ack (section 4): on a +5 long-press during FILLING the LED blinks 3x quickly (on 100 ms/off 100 ms) then RESUMES solid — a one-shot overlay, valve stays open, fill timing unaffected.\n2. INPUT: Time utilities P1.M1.T2.S1; config LED constants (DONE_PULSE_*, FAULT_*, ACK_BLINK_MS).\n3. LOGIC: Pure class LedPatternEngine: setMode(Mode) with Mode in {Off, Solid, DonePulse, FaultBlink(uint8_t groups)}; triggerAck() starts the one-shot ack overlay; bool tick(uint32_t nowMs) -> ledOn. All cadences derived from config constants; zero delay(); injected clock. Native tests: done-pulse on/off instants at pattern boundaries and 1000 ms gap repetition; fault groups for n=1,2,3 then 2000 ms pause; ack overlay: 3 blinks in 600 ms then previous mode (Solid) resumes exactly; mode change mid-pattern resets phase cleanly; wrap-safe.\n4. OUTPUT: boolean ledOn stream + mode/ack API consumed by drivers (P1.M5.T2.S1, P1.M5.T3.S1); modes set only by the fill engine (P1.M6.T1.S2).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.4",
+                    "h2.7",
+                    "h3.3",
+                    "h2.8"
+                  ]
                 }
               ]
             },
@@ -293,9 +391,17 @@
                   "title": "Drive GP14 from the pattern engine each loop pass",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M5.T1.S1", "P1.M1.T1.S2"],
-                  "prd_selectors": ["h2.4", "h3.0", "h2.11", "h2.8"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 2.1: GP14 -> 330R -> LED anode, cathode -> GND; the external green LED is AUTHORITATIVE (WS2812 only mirrors). CONFIRM continues solid (section 4); DONE persists until acknowledged — no timeout (section 11). GPIO drive strength is ample for ~10 mA through 330R at 3.3 V.\n2. INPUT: LedPatternEngine from P1.M5.T1.S1; skeleton from P1.M1.T1.S2.\n3. LOGIC: In the ARDUINO region: pinMode(PIN_LED, OUTPUT) in setup (LED off initially); each loop pass digitalWrite(PIN_LED, engine.ledOn). Mode selection itself is the fill engine's job (P1.M6.T2.S1) — this subtask only drives the pin from the engine state. Mock: none on device; engine patterns native-tested in P1.M5.T1.S1.\n4. OUTPUT: driven external LED consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M5.T1.S1",
+                    "P1.M1.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 2.1: GP14 -> 330R -> LED anode, cathode -> GND; the external green LED is AUTHORITATIVE (WS2812 only mirrors). CONFIRM continues solid (section 4); DONE persists until acknowledged — no timeout (section 11). GPIO drive strength is ample for ~10 mA through 330R at 3.3 V.\n2. INPUT: LedPatternEngine from P1.M5.T1.S1; skeleton from P1.M1.T1.S2.\n3. LOGIC: In the ARDUINO region: pinMode(PIN_LED, OUTPUT) in setup (LED off initially); each loop pass digitalWrite(PIN_LED, engine.ledOn). Mode selection itself is the fill engine's job (P1.M6.T2.S1) — this subtask only drives the pin from the engine state. Mock: none on device; engine patterns native-tested in P1.M5.T1.S1.\n4. OUTPUT: driven external LED consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.4",
+                    "h3.0",
+                    "h2.11",
+                    "h2.8"
+                  ]
                 }
               ]
             },
@@ -312,9 +418,17 @@
                   "title": "Config-gated WS2812 mirror with color map and brightness cap",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M5.T1.S1", "P1.M1.T1.S2"],
-                  "prd_selectors": ["h2.4", "h3.0", "h2.8", "h2.3"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: arduino-pico bundles a WS2812 PIO library (libraries/WS2812; class WS2812(pin, count, pio) with begin()/pixel-setting/show methods — verify exact method names against the installed core version at implementation; treat availability as verified per plan/001_53984f832581/architecture/external_deps.md). RP2040-Zero onboard WS2812 is on GP16 (firmware-only pin, section 2.1), powered from 3V3. Section 2.2: keep brightness <= RGB_BRIGHTNESS=60/255 — implement by SCALING the RGB values written (do not depend on a library brightness API).\n2. INPUT: LedPatternEngine modes/ledOn from P1.M5.T1.S1; config USE_ONBOARD_RGB, RGB_BRIGHTNESS.\n3. LOGIC: In the ARDUINO region, fully gated by USE_ONBOARD_RGB: construct the strip on GP16 with 1 pixel; color map per section 4 mirror column — IDLE off (black); FILLING and CONFIRM blue solid; DONE green following the done-pulse ledOn pattern; FAULT red following the fault ledOn pattern. Update the pixel only when engine output changes. Mock: none on device. Bench: verify mirror colors/patterns match the external LED.\n4. OUTPUT: mirror output consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M5.T1.S1",
+                    "P1.M1.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: arduino-pico bundles a WS2812 PIO library (libraries/WS2812; class WS2812(pin, count, pio) with begin()/pixel-setting/show methods — verify exact method names against the installed core version at implementation; treat availability as verified per plan/001_53984f832581/architecture/external_deps.md). RP2040-Zero onboard WS2812 is on GP16 (firmware-only pin, section 2.1), powered from 3V3. Section 2.2: keep brightness <= RGB_BRIGHTNESS=60/255 — implement by SCALING the RGB values written (do not depend on a library brightness API).\n2. INPUT: LedPatternEngine modes/ledOn from P1.M5.T1.S1; config USE_ONBOARD_RGB, RGB_BRIGHTNESS.\n3. LOGIC: In the ARDUINO region, fully gated by USE_ONBOARD_RGB: construct the strip on GP16 with 1 pixel; color map per section 4 mirror column — IDLE off (black); FILLING and CONFIRM blue solid; DONE green following the done-pulse ledOn pattern; FAULT red following the fault ledOn pattern. Update the pixel only when engine output changes. Mock: none on device. Bench: verify mirror colors/patterns match the external LED.\n4. OUTPUT: mirror output consumed by the integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.4",
+                    "h3.0",
+                    "h2.8",
+                    "h2.3"
+                  ]
                 }
               ]
             }
@@ -340,9 +454,19 @@
                   "title": "Five-state core: section 5.1 transition table + valve invariant (pure)",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M2.T1.S1", "P1.M1.T2.S1"],
-                  "prd_selectors": ["h2.4", "h2.5", "h3.3", "h3.4", "h3.5", "h2.10"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 5.1 is the normative table (both actions fire on release): IDLE short -> START FILL (FILLING), IDLE long -> nothing; FILLING short -> abort (valve closed -> IDLE), FILLING long -> +5 min to this fill's backstop (stacks) + LED ack (stay FILLING); CONFIRM short/long -> ignored; DONE short -> acknowledge (light off -> IDLE), DONE long -> also acknowledges; FAULT short/long -> ignored. Section 10 invariants: the valve is only ever HIGH while in FILLING, and FILLING is entered ONLY by a human BOOT short-press from IDLE — no path (boot, watchdog reset, fault recovery, button) ever opens the valve automatically (sections 5.3, 7.9).\n2. INPUT: ButtonClassifier events from P1.M2.T1.S1; time utilities P1.M1.T2.S1.\n3. LOGIC: Pure transition core: enum State {Idle, Filling, Confirm, Done, Fault}; struct Outputs {bool valveOpen; LedMode led; bool plus5Applied; bool acknowledged;}. Implement the table EXACTLY — every cell, including the ignored ones. Native tests: one test per table cell; boot initial state = Idle with valveOpen=false; property test — no event sequence (fuzz, seeded) ever yields valveOpen=true except via the Idle+ShortPress transition; abort long-press does nothing in Idle.\n4. OUTPUT: transition function consumed by the lifecycle orchestrator (P1.M6.T1.S2).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M2.T1.S1",
+                    "P1.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 5.1 is the normative table (both actions fire on release): IDLE short -> START FILL (FILLING), IDLE long -> nothing; FILLING short -> abort (valve closed -> IDLE), FILLING long -> +5 min to this fill's backstop (stacks) + LED ack (stay FILLING); CONFIRM short/long -> ignored; DONE short -> acknowledge (light off -> IDLE), DONE long -> also acknowledges; FAULT short/long -> ignored. Section 10 invariants: the valve is only ever HIGH while in FILLING, and FILLING is entered ONLY by a human BOOT short-press from IDLE — no path (boot, watchdog reset, fault recovery, button) ever opens the valve automatically (sections 5.3, 7.9).\n2. INPUT: ButtonClassifier events from P1.M2.T1.S1; time utilities P1.M1.T2.S1.\n3. LOGIC: Pure transition core: enum State {Idle, Filling, Confirm, Done, Fault}; struct Outputs {bool valveOpen; LedMode led; bool plus5Applied; bool acknowledged;}. Implement the table EXACTLY — every cell, including the ignored ones. Native tests: one test per table cell; boot initial state = Idle with valveOpen=false; property test — no event sequence (fuzz, seeded) ever yields valveOpen=true except via the Idle+ShortPress transition; abort long-press does nothing in Idle.\n4. OUTPUT: transition function consumed by the lifecycle orchestrator (P1.M6.T1.S2).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.4",
+                    "h2.5",
+                    "h3.3",
+                    "h3.4",
+                    "h3.5",
+                    "h2.10"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -350,9 +474,23 @@
                   "title": "Lifecycle orchestration: baseline -> valve -> trip -> CONFIRM -> DONE (pure)",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M6.T1.S1", "P1.M3.T2.S1", "P1.M3.T3.S1", "P1.M3.T3.S2", "P1.M4.T2.S1", "P1.M5.T1.S1"],
-                  "prd_selectors": ["h2.7", "h2.6", "h3.4", "h3.6", "h2.4", "h2.10"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7 steps 1-9 with these clarifications (documented in plan/001_53984f832581/architecture/firmware_architecture.md): the 2 s settle/baseline phase runs INSIDE Filling with the valve still closed — a short-press abort during settle is honored and, like any fill end, restarts the recovery clock at the abort instant (section 6.1 'whatever ended it'); the backstop is COMPUTED once at fill start (button press) but its deadline is ANCHORED at the valve-open instant because it bounds valve-open time (section 6 preamble); first sensor trip closes the valve IMMEDIATELY then enters Confirm for CONFIRM_WINDOW_S=12 s waiting for the other sensor; Confirm success -> Done with the recovery-clock reference set to the valve-CLOSE instant (section 7.8); EVERY code path that ends a fill sets the valve pin LOW FIRST (section 7.9) — engine output ordering must reflect close-before-state-flip.\n2. INPUT: FSM core (P1.M6.T1.S1); BaselineCapture (P1.M3.T2.S1); TripDetectors (P1.M3.T3.S1); guards (P1.M3.T3.S2); RecoveryClock/FillDeadline (P1.M4.T2.S1); LedPatternEngine (P1.M5.T1.S1).\n3. LOGIC: Pure FillEngine.step(uint32_t nowMs, ButtonEvent, averaged readings when due) -> Outputs + log-event list (state transitions, backstop computation, trip/confirm events — consumed by the integration loop's logLine). Orchestrate sub-phases; on Idle+Short: compute backstop, run settle/baseline (fault path if implausible — valve never opened), open valve + anchor deadline, led Solid; on trip: valve close -> Confirm; on second trip within window: Done, record recovery reference at valve-close instant, led DonePulse; on abort: close valve, record fill end, Idle. Native tests: full happy path with scripted sensor streams (sensor1 first, then sensor2 first — symmetric); Flow 1 (start -> abort -> restart with fresh RECOMPUTED timer, section 5.2); Flow 2 complete; confirm-window timeout -> fault; ordering assertion: every Filling/Confirm exit emits valve close as the first output action.\n4. OUTPUT: single FillEngine consumed by the hardware integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M6.T1.S1",
+                    "P1.M3.T2.S1",
+                    "P1.M3.T3.S1",
+                    "P1.M3.T3.S2",
+                    "P1.M4.T2.S1",
+                    "P1.M5.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7 steps 1-9 with these clarifications (documented in plan/001_53984f832581/architecture/firmware_architecture.md): the 2 s settle/baseline phase runs INSIDE Filling with the valve still closed — a short-press abort during settle is honored and, like any fill end, restarts the recovery clock at the abort instant (section 6.1 'whatever ended it'); the backstop is COMPUTED once at fill start (button press) but its deadline is ANCHORED at the valve-open instant because it bounds valve-open time (section 6 preamble); first sensor trip closes the valve IMMEDIATELY then enters Confirm for CONFIRM_WINDOW_S=12 s waiting for the other sensor; Confirm success -> Done with the recovery-clock reference set to the valve-CLOSE instant (section 7.8); EVERY code path that ends a fill sets the valve pin LOW FIRST (section 7.9) — engine output ordering must reflect close-before-state-flip.\n2. INPUT: FSM core (P1.M6.T1.S1); BaselineCapture (P1.M3.T2.S1); TripDetectors (P1.M3.T3.S1); guards (P1.M3.T3.S2); RecoveryClock/FillDeadline (P1.M4.T2.S1); LedPatternEngine (P1.M5.T1.S1).\n3. LOGIC: Pure FillEngine.step(uint32_t nowMs, ButtonEvent, averaged readings when due) -> Outputs + log-event list (state transitions, backstop computation, trip/confirm events — consumed by the integration loop's logLine). Orchestrate sub-phases; on Idle+Short: compute backstop, run settle/baseline (fault path if implausible — valve never opened), open valve + anchor deadline, led Solid; on trip: valve close -> Confirm; on second trip within window: Done, record recovery reference at valve-close instant, led DonePulse; on abort: close valve, record fill end, Idle. Native tests: full happy path with scripted sensor streams (sensor1 first, then sensor2 first — symmetric); Flow 1 (start -> abort -> restart with fresh RECOMPUTED timer, section 5.2); Flow 2 complete; confirm-window timeout -> fault; ordering assertion: every Filling/Confirm exit emits valve close as the first output action.\n4. OUTPUT: single FillEngine consumed by the hardware integration loop (P1.M6.T2.S1).\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.7",
+                    "h2.6",
+                    "h3.4",
+                    "h3.6",
+                    "h2.4",
+                    "h2.10"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -360,9 +498,16 @@
                   "title": "Fault latching and blink codes 1/2/3 (pure)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M6.T1.S2"],
-                  "prd_selectors": ["h2.7", "h2.4", "h3.5", "h2.11"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7 fault table: code 1 = sensor 1 bad (baseline out of range, false trip, never tripped in confirm window); code 2 = sensor 2 bad (same); code 3 = timer fired with no trip. Cadence handled by LedPatternEngine.FaultBlink(n). Faults LATCH: cleared only by RESET or power cycle — which also clears tank history so the next fill uses the 30-min default (section 5.3); BOOT is ignored while faulted; the valve refuses to open while faulted (structurally guaranteed — Fault never transitions to Filling).\n2. INPUT: FillEngine from P1.M6.T1.S2.\n3. LOGIC: Extend FillEngine: fault entry closes the valve FIRST, sets state Fault with code, led FaultBlink(code). Native tests: baseline out-of-range on sensor 1 -> code 1 and valve NEVER opened; sensor 2 confirm-window miss -> code 2; backstop expiry with no trip -> code 3; early-trip/early-wet guards (P1.M3.T3.S2) map to the sensor's code; button events in Fault change nothing and never open the valve; a fresh engine instance (simulating reset) starts Idle with no history -> next fill uses 30 min.\n4. OUTPUT: complete latching fault behavior inside FillEngine — the behavioral contract of sections 5, 7 fully closed.\n5. DOCS: none — internal."
+                  "dependencies": [
+                    "P1.M6.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 7 fault table: code 1 = sensor 1 bad (baseline out of range, false trip, never tripped in confirm window); code 2 = sensor 2 bad (same); code 3 = timer fired with no trip. Cadence handled by LedPatternEngine.FaultBlink(n). Faults LATCH: cleared only by RESET or power cycle — which also clears tank history so the next fill uses the 30-min default (section 5.3); BOOT is ignored while faulted; the valve refuses to open while faulted (structurally guaranteed — Fault never transitions to Filling).\n2. INPUT: FillEngine from P1.M6.T1.S2.\n3. LOGIC: Extend FillEngine: fault entry closes the valve FIRST, sets state Fault with code, led FaultBlink(code). Native tests: baseline out-of-range on sensor 1 -> code 1 and valve NEVER opened; sensor 2 confirm-window miss -> code 2; backstop expiry with no trip -> code 3; early-trip/early-wet guards (P1.M3.T3.S2) map to the sensor's code; button events in Fault change nothing and never open the valve; a fresh engine instance (simulating reset) starts Idle with no history -> next fill uses 30 min.\n4. OUTPUT: complete latching fault behavior inside FillEngine — the behavioral contract of sections 5, 7 fully closed.\n5. DOCS: none — internal.",
+                  "prd_selectors": [
+                    "h2.7",
+                    "h2.4",
+                    "h3.5",
+                    "h2.11"
+                  ]
                 }
               ]
             },
@@ -379,9 +524,23 @@
                   "title": "setup()/loop() wiring: services -> FillEngine -> valve/LED/log, zero delay()",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M6.T1.S3", "P1.M2.T2.S1", "P1.M3.T1.S2", "P1.M5.T2.S1", "P1.M5.T3.S1", "P1.M1.T2.S2"],
-                  "prd_selectors": ["h2.3", "h2.10", "h2.7", "h2.9", "h2.4", "h2.2"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 3: USB CDC serial at 115200, always on, logging state transitions, raw sensor counts, backstop computations. Section 10: watchdog fed every loop pass; NO blocking delay() in the fill loop — every cadence flows through the injected-clock services already built; the loop body must stay far inside the 8 s watchdog budget (it will — sub-millisecond passes). The two-file firmware constraint is honored: everything lands in jug_filler.ino's ARDUINO region + config.h.\n2. INPUT: FillEngine (P1.M6.T1.S3); BOOTSEL service (P1.M2.T2.S1); ADC service (P1.M3.T1.S2); LED drivers (P1.M5.T2.S1, P1.M5.T3.S1); watchdog/logLine (P1.M1.T2.S2).\n3. LOGIC: In the ARDUINO region: setup() — line 1: digitalWrite valve LOW (before pinMode even, drive-then-config is fine as long as LOW is first); pinModes (valve/LED outputs, off); analogReadResolution(ADC_BITS); Serial.begin(SERIAL_BAUD) + boot banner incl. watchdog_caused_reboot(); watchdog_enable(WATCHDOG_TIMEOUT_S*1000, true); construct services in Idle. loop() — watchdog_update(); sample BOOTSEL -> button event; sample ADCs -> aggregator; on reading due, FillEngine.step(...); write valve pin IMMEDIATELY when engine output changes (close-before-state-flip ordering from P1.M6.T1.S2 preserved); update LED drivers; emit engine log events via logLine. Verify zero delay() by grep + review. Mock: none (device target); all logic natively tested upstream.\n4. OUTPUT: complete flashable firmware meeting sections 3-10 — the deliverable of Phase 1.\n5. DOCS: Mode A — document the serial log line formats (state transitions, S1/S2 raw counts, backstop computation) in README.md Logging section (brief pointer; full sweep in P2.M1.T3.S1)."
+                  "dependencies": [
+                    "P1.M6.T1.S3",
+                    "P1.M2.T2.S1",
+                    "P1.M3.T1.S2",
+                    "P1.M5.T2.S1",
+                    "P1.M5.T3.S1",
+                    "P1.M1.T2.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 3: USB CDC serial at 115200, always on, logging state transitions, raw sensor counts, backstop computations. Section 10: watchdog fed every loop pass; NO blocking delay() in the fill loop — every cadence flows through the injected-clock services already built; the loop body must stay far inside the 8 s watchdog budget (it will — sub-millisecond passes). The two-file firmware constraint is honored: everything lands in jug_filler.ino's ARDUINO region + config.h.\n2. INPUT: FillEngine (P1.M6.T1.S3); BOOTSEL service (P1.M2.T2.S1); ADC service (P1.M3.T1.S2); LED drivers (P1.M5.T2.S1, P1.M5.T3.S1); watchdog/logLine (P1.M1.T2.S2).\n3. LOGIC: In the ARDUINO region: setup() — line 1: digitalWrite valve LOW (before pinMode even, drive-then-config is fine as long as LOW is first); pinModes (valve/LED outputs, off); analogReadResolution(ADC_BITS); Serial.begin(SERIAL_BAUD) + boot banner incl. watchdog_caused_reboot(); watchdog_enable(WATCHDOG_TIMEOUT_S*1000, true); construct services in Idle. loop() — watchdog_update(); sample BOOTSEL -> button event; sample ADCs -> aggregator; on reading due, FillEngine.step(...); write valve pin IMMEDIATELY when engine output changes (close-before-state-flip ordering from P1.M6.T1.S2 preserved); update LED drivers; emit engine log events via logLine. Verify zero delay() by grep + review. Mock: none (device target); all logic natively tested upstream.\n4. OUTPUT: complete flashable firmware meeting sections 3-10 — the deliverable of Phase 1.\n5. DOCS: Mode A — document the serial log line formats (state transitions, S1/S2 raw counts, backstop computation) in README.md Logging section (brief pointer; full sweep in P2.M1.T3.S1).",
+                  "prd_selectors": [
+                    "h2.3",
+                    "h2.10",
+                    "h2.7",
+                    "h2.9",
+                    "h2.4",
+                    "h2.2"
+                  ]
                 }
               ]
             }
@@ -407,9 +566,16 @@
                   "title": "Property tests: no auto-open, valve LOW first, close-on-every-exit",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M6.T2.S1"],
-                  "prd_selectors": ["h2.10", "h2.7", "h2.5", "h3.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 10 checklist maps to testable properties: (a) valve pin driven LOW as the very first line of setup(); (b) valve opens only in Filling, entered only by human BOOT press — no boot, watchdog reset, fault-recovery or button path auto-opens; (c) hang -> watchdog reset -> valve closed -> Idle awaiting press; (d) no delay() in the fill loop; (e) backstops hug real fill times (covered by P1.M4.T1.S1 table tests).\n2. INPUT: FillEngine + integration firmware from P1.M6.T2.S1.\n3. LOGIC: Native tests: seeded randomized event+sensor sequences (thousands of steps) asserting valveOpen never becomes true except via Idle+ShortPress; every transition out of Filling/Confirm emits valve-close as first output; initial output = valve LOW, state Idle. Structural check: a tiny script (test/check_setup_first_line.py or a grep assertion) verifying setup()'s first executable statement drives PIN_VALVE LOW, and that delay( does not appear outside comments in the ARDUINO loop region. Watchdog-reset behavior verified on bench in P1.M7.T2.S1 (a fresh boot lands Idle/valve-closed — natively: fresh engine instance starts Idle with valve LOW).\n4. OUTPUT: green invariant suite guarding all future refactors; CI-runnable via pio test -e native plus the structural check.\n5. DOCS: none — tests only."
+                  "dependencies": [
+                    "P1.M6.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 10 checklist maps to testable properties: (a) valve pin driven LOW as the very first line of setup(); (b) valve opens only in Filling, entered only by human BOOT press — no boot, watchdog reset, fault-recovery or button path auto-opens; (c) hang -> watchdog reset -> valve closed -> Idle awaiting press; (d) no delay() in the fill loop; (e) backstops hug real fill times (covered by P1.M4.T1.S1 table tests).\n2. INPUT: FillEngine + integration firmware from P1.M6.T2.S1.\n3. LOGIC: Native tests: seeded randomized event+sensor sequences (thousands of steps) asserting valveOpen never becomes true except via Idle+ShortPress; every transition out of Filling/Confirm emits valve-close as first output; initial output = valve LOW, state Idle. Structural check: a tiny script (test/check_setup_first_line.py or a grep assertion) verifying setup()'s first executable statement drives PIN_VALVE LOW, and that delay( does not appear outside comments in the ARDUINO loop region. Watchdog-reset behavior verified on bench in P1.M7.T2.S1 (a fresh boot lands Idle/valve-closed — natively: fresh engine instance starts Idle with valve LOW).\n4. OUTPUT: green invariant suite guarding all future refactors; CI-runnable via pio test -e native plus the structural check.\n5. DOCS: none — tests only.",
+                  "prd_selectors": [
+                    "h2.10",
+                    "h2.7",
+                    "h2.5",
+                    "h3.5"
+                  ]
                 }
               ]
             },
@@ -426,9 +592,18 @@
                   "title": "Execute bench validation: power rules, flows 1/2, fault blink codes, log capture",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M7.T1.S1"],
-                  "prd_selectors": ["h2.9", "h3.4", "h3.1", "h2.7", "h2.5", "h2.4"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.1/9.2 bench rules (BINDING power safety): bench sessions are USB-powered with the buck DISCONNECTED from the board; 12 V may feed the MOSFET module alone for valve dry-fire tests; NEVER USB and buck together — verified from Waveshare's own FAQ that the RP2040-Zero 5V pin (VSYS) ties DIRECTLY to USB VBUS with no diode (plan/001_53984f832581/architecture/hardware_validation.md). Dry-fire valve clicks < 5 s each to avoid solenoid overheating. This is a PHYSICAL task — requires the assembled hardware.\n2. INPUT: Flashed firmware from P1.M6.T2.S1; green invariant suite P1.M7.T1.S1.\n3. LOGIC: Execute and record: (1) dry bench check per section 9.1 — Idle on power-up, BOOT press logging, valve dry-fire clicks; (2) section 9.4 dry-runs — hand-dip sensors in a cup: Flow 1 (start -> abort mid-fill -> restart with fresh recomputed timer, verify backstop log line recomputed) and Flow 2 (start -> first dip -> confirm dip -> DONE triple-pulse -> acknowledge -> next fill); (3) fault paths — wet sensor at start (baseline fault, correct blink code, valve never opened), single-sensor dip that never confirms (sensor fault code), and observe LED cadences against section 4/7 timings; (4) optional watchdog check — a temporarily compiled hang (behind a UNIT_TEST-adjacent debug define, never in production builds) resets to Idle/valve-closed. Capture serial logs as evidence files under docs/bench/ (test evidence only — not firmware, so the two-file constraint is untouched). File discrepancies as follow-up issues.\n4. OUTPUT: validated flows 1/2 + fault codes on hardware; bench log evidence; discrepancy list feeding any fixes before Phase 2.\n5. DOCS: Mode A — bench evidence artifacts under docs/bench/ with date-stamped filenames; spec/SPEC.md remains the source of truth."
+                  "dependencies": [
+                    "P1.M7.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.1/9.2 bench rules (BINDING power safety): bench sessions are USB-powered with the buck DISCONNECTED from the board; 12 V may feed the MOSFET module alone for valve dry-fire tests; NEVER USB and buck together — verified from Waveshare's own FAQ that the RP2040-Zero 5V pin (VSYS) ties DIRECTLY to USB VBUS with no diode (plan/001_53984f832581/architecture/hardware_validation.md). Dry-fire valve clicks < 5 s each to avoid solenoid overheating. This is a PHYSICAL task — requires the assembled hardware.\n2. INPUT: Flashed firmware from P1.M6.T2.S1; green invariant suite P1.M7.T1.S1.\n3. LOGIC: Execute and record: (1) dry bench check per section 9.1 — Idle on power-up, BOOT press logging, valve dry-fire clicks; (2) section 9.4 dry-runs — hand-dip sensors in a cup: Flow 1 (start -> abort mid-fill -> restart with fresh recomputed timer, verify backstop log line recomputed) and Flow 2 (start -> first dip -> confirm dip -> DONE triple-pulse -> acknowledge -> next fill); (3) fault paths — wet sensor at start (baseline fault, correct blink code, valve never opened), single-sensor dip that never confirms (sensor fault code), and observe LED cadences against section 4/7 timings; (4) optional watchdog check — a temporarily compiled hang (behind a UNIT_TEST-adjacent debug define, never in production builds) resets to Idle/valve-closed. Capture serial logs as evidence files under docs/bench/ (test evidence only — not firmware, so the two-file constraint is untouched). File discrepancies as follow-up issues.\n4. OUTPUT: validated flows 1/2 + fault codes on hardware; bench log evidence; discrepancy list feeding any fixes before Phase 2.\n5. DOCS: Mode A — bench evidence artifacts under docs/bench/ with date-stamped filenames; spec/SPEC.md remains the source of truth.",
+                  "prd_selectors": [
+                    "h2.9",
+                    "h3.4",
+                    "h3.1",
+                    "h2.7",
+                    "h2.5",
+                    "h2.4"
+                  ]
                 }
               ]
             }
@@ -463,9 +638,16 @@
                   "title": "Audit and complete log coverage for section 9 workflow",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M6.T2.S1"],
-                  "prd_selectors": ["h2.9", "h2.3", "h2.8", "h2.7"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.3 needs logged dry baselines (expect ~3000-3900 counts) and wet values to set BASELINE_MIN/MAX and TRIP_DROP_COUNTS (~half the dry-to-wet delta). Section 9.5 needs actual fill durations vs recovery times to retune BACKSTOP_TABLE_MIN. Section 3 mandates logging of state transitions, raw sensor counts and backstop computations — most lines already ride with their features (P1.M3.T1.S2, P1.M6.T2.S1); this subtask closes any gap.\n2. INPUT: Firmware logging from P1.M6.T2.S1 (logLine formats).\n3. LOGIC: Walk each section 9 step against the actual log stream; add or adjust missing lines with sensor id + counts: dry/wet baseline values and verdicts per sensor; backstop computation (recovery minutes, table result, deadline, +5 extensions); end-of-fill summary (duration, end cause). Keep every line small and non-blocking when USB is absent (policy from P1.M1.T2.S2). Native-test any pure formatting helpers. No behavior changes beyond logging.\n4. OUTPUT: log stream sufficient to execute section 9.3 and 9.5 with no extra tooling.\n5. DOCS: Mode A — README.md Logging section documents the final line formats."
+                  "dependencies": [
+                    "P1.M6.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.3 needs logged dry baselines (expect ~3000-3900 counts) and wet values to set BASELINE_MIN/MAX and TRIP_DROP_COUNTS (~half the dry-to-wet delta). Section 9.5 needs actual fill durations vs recovery times to retune BACKSTOP_TABLE_MIN. Section 3 mandates logging of state transitions, raw sensor counts and backstop computations — most lines already ride with their features (P1.M3.T1.S2, P1.M6.T2.S1); this subtask closes any gap.\n2. INPUT: Firmware logging from P1.M6.T2.S1 (logLine formats).\n3. LOGIC: Walk each section 9 step against the actual log stream; add or adjust missing lines with sensor id + counts: dry/wet baseline values and verdicts per sensor; backstop computation (recovery minutes, table result, deadline, +5 extensions); end-of-fill summary (duration, end cause). Keep every line small and non-blocking when USB is absent (policy from P1.M1.T2.S2). Native-test any pure formatting helpers. No behavior changes beyond logging.\n4. OUTPUT: log stream sufficient to execute section 9.3 and 9.5 with no extra tooling.\n5. DOCS: Mode A — README.md Logging section documents the final line formats.",
+                  "prd_selectors": [
+                    "h2.9",
+                    "h2.3",
+                    "h2.8",
+                    "h2.7"
+                  ]
                 }
               ]
             },
@@ -482,9 +664,16 @@
                   "title": "Author docs/COMMISSIONING.md calibration runbook",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P2.M1.T1.S1"],
-                  "prd_selectors": ["h2.9", "h3.7", "h2.8", "h3.1"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.3: set BASELINE_MIN/MAX around the OBSERVED dry range and TRIP_DROP_COUNTS at roughly half the observed dry-to-wet delta. Section 9.5: attended first fills — log actual fill durations vs recovery times and set BACKSTOP_TABLE_MIN accordingly, preserving the concave shape (steep at short recovery, flattening near the full-tank value; never padded — section 6.2 rationale). Section 9.2: multimeter buck verification 4.9-5.1 V at the 5V pin before first buck-powered boot; USB/buck exclusivity rules.\n2. INPUT: Log audit from P2.M1.T1.S1 (final log line formats).\n3. LOGIC: Write docs/COMMISSIONING.md: step-by-step procedure mapping each section 9 step to concrete log lines to watch and the EXACT config.h group/constant to edit, with expected magnitudes (counts, minutes); include the power-safety preconditions (never USB+buck; buck preset check) and the dry-fire <5 s rule. No firmware changes expected.\n4. OUTPUT: a runbook enabling calibration by a non-author.\n5. DOCS: Mode A — docs/COMMISSIONING.md is created here (changeset-scoped doc riding with this task)."
+                  "dependencies": [
+                    "P2.M1.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Section 9.3: set BASELINE_MIN/MAX around the OBSERVED dry range and TRIP_DROP_COUNTS at roughly half the observed dry-to-wet delta. Section 9.5: attended first fills — log actual fill durations vs recovery times and set BACKSTOP_TABLE_MIN accordingly, preserving the concave shape (steep at short recovery, flattening near the full-tank value; never padded — section 6.2 rationale). Section 9.2: multimeter buck verification 4.9-5.1 V at the 5V pin before first buck-powered boot; USB/buck exclusivity rules.\n2. INPUT: Log audit from P2.M1.T1.S1 (final log line formats).\n3. LOGIC: Write docs/COMMISSIONING.md: step-by-step procedure mapping each section 9 step to concrete log lines to watch and the EXACT config.h group/constant to edit, with expected magnitudes (counts, minutes); include the power-safety preconditions (never USB+buck; buck preset check) and the dry-fire <5 s rule. No firmware changes expected.\n4. OUTPUT: a runbook enabling calibration by a non-author.\n5. DOCS: Mode A — docs/COMMISSIONING.md is created here (changeset-scoped doc riding with this task).",
+                  "prd_selectors": [
+                    "h2.9",
+                    "h3.7",
+                    "h2.8",
+                    "h3.1"
+                  ]
                 }
               ]
             },
@@ -501,9 +690,44 @@
                   "title": "Update README.md and overview docs for the whole changeset",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M1.T1.S1", "P1.M1.T1.S2", "P1.M1.T2.S1", "P1.M1.T2.S2", "P1.M2.T1.S1", "P1.M2.T2.S1", "P1.M3.T1.S1", "P1.M3.T1.S2", "P1.M3.T2.S1", "P1.M3.T3.S1", "P1.M3.T3.S2", "P1.M4.T1.S1", "P1.M4.T2.S1", "P1.M5.T1.S1", "P1.M5.T2.S1", "P1.M5.T3.S1", "P1.M6.T1.S1", "P1.M6.T1.S2", "P1.M6.T1.S3", "P1.M6.T2.S1", "P1.M7.T1.S1", "P1.M7.T2.S1", "P2.M1.T1.S1", "P2.M1.T2.S1"],
-                  "prd_selectors": ["h2.0", "h2.1", "h2.2", "h2.3", "h2.4", "h2.5", "h2.9", "h2.10", "h2.11"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Documentation-drift control (SOW section 5 Mode B): this task summarizes the WHOLE changeset. Per plan/001_53984f832581/architecture/system_context.md finding: spec/SPEC.md is the requirements source of truth — README must POINT at it (wiring tables, state table, config contract) rather than duplicate, so spec edits never drift from docs.\n2. INPUT: Every implementing subtask (dependencies list) — the completed firmware, native test suite, bench evidence under docs/bench/, docs/COMMISSIONING.md from P2.M1.T2.S1.\n3. LOGIC: Update README.md: what the device is (1 paragraph, section 0); capability summary (five states, LED contract pointer, button semantics pointer); wiring -> point to spec section 2 + block diagram; build & flash instructions (Arduino IDE with arduino-pico core; PlatformIO pico env; native tests via pio test -e native) incl. the NEVER-USB-and-buck-together power rule (section 2.2); operation quick-reference (BOOT short/long per state — one compact table); logging formats pointer; commissioning pointer to docs/COMMISSIONING.md; safety invariants recap (section 10). Sweep every changeset-level doc for staleness; implementing agents may individually conclude a file needs no touch, but must confirm explicitly.\n4. OUTPUT: coherent changeset-level documentation; repo presentable to a newcomer.\n5. DOCS: Mode B — this IS the changeset-level documentation task."
+                  "dependencies": [
+                    "P1.M1.T1.S1",
+                    "P1.M1.T1.S2",
+                    "P1.M1.T2.S1",
+                    "P1.M1.T2.S2",
+                    "P1.M2.T1.S1",
+                    "P1.M2.T2.S1",
+                    "P1.M3.T1.S1",
+                    "P1.M3.T1.S2",
+                    "P1.M3.T2.S1",
+                    "P1.M3.T3.S1",
+                    "P1.M3.T3.S2",
+                    "P1.M4.T1.S1",
+                    "P1.M4.T2.S1",
+                    "P1.M5.T1.S1",
+                    "P1.M5.T2.S1",
+                    "P1.M5.T3.S1",
+                    "P1.M6.T1.S1",
+                    "P1.M6.T1.S2",
+                    "P1.M6.T1.S3",
+                    "P1.M6.T2.S1",
+                    "P1.M7.T1.S1",
+                    "P1.M7.T2.S1",
+                    "P2.M1.T1.S1",
+                    "P2.M1.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: Documentation-drift control (SOW section 5 Mode B): this task summarizes the WHOLE changeset. Per plan/001_53984f832581/architecture/system_context.md finding: spec/SPEC.md is the requirements source of truth — README must POINT at it (wiring tables, state table, config contract) rather than duplicate, so spec edits never drift from docs.\n2. INPUT: Every implementing subtask (dependencies list) — the completed firmware, native test suite, bench evidence under docs/bench/, docs/COMMISSIONING.md from P2.M1.T2.S1.\n3. LOGIC: Update README.md: what the device is (1 paragraph, section 0); capability summary (five states, LED contract pointer, button semantics pointer); wiring -> point to spec section 2 + block diagram; build & flash instructions (Arduino IDE with arduino-pico core; PlatformIO pico env; native tests via pio test -e native) incl. the NEVER-USB-and-buck-together power rule (section 2.2); operation quick-reference (BOOT short/long per state — one compact table); logging formats pointer; commissioning pointer to docs/COMMISSIONING.md; safety invariants recap (section 10). Sweep every changeset-level doc for staleness; implementing agents may individually conclude a file needs no touch, but must confirm explicitly.\n4. OUTPUT: coherent changeset-level documentation; repo presentable to a newcomer.\n5. DOCS: Mode B — this IS the changeset-level documentation task.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.1",
+                    "h2.2",
+                    "h2.3",
+                    "h2.4",
+                    "h2.5",
+                    "h2.9",
+                    "h2.10",
+                    "h2.11"
+                  ]
                 }
               ]
             }
