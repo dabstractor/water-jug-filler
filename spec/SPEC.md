@@ -43,20 +43,62 @@ Spares: GP28/GP29 (ADC2/ADC3) and GP2–GP13, all unwired. Reserved: GP0/GP1 (UA
 - The module's onboard gate pull-down keeps the valve closed while pins float during boot/BOOTSel/flashing/brownout.
 - Route the sensor AOUT wires away from the valve/solenoid wiring to keep switching noise out of the analog readings.
 
-### 2.3 Block diagram
-```
-12V supply +  ----+-------------------> MOSFET module IN+
-                  |                        OUT+ ----+---- solenoid A
-                  +--> LM2596 IN+           OUT- ----+---- solenoid B
-                        OUT+ (5V) --> board 5V pin    (1N4148 across A/B, stripe to A/+)
-                        (100uF across 5V/GND at the board)
+### 2.3 Complete wiring netlist
 
-                  GP15 --> module TRIG/PWM        module GND --> common GND
-                  3V3  --> sensor VCC (x2)        GP26 <-- sensor 1 AOUT (100nF to GND)
-                                                     GP27 <-- sensor 2 AOUT (100nF to GND)
-                  GP14 --> 330R --> LED anode     LED cathode --> GND
-12V supply -  ----> common GND (supply, buck, module, board, sensors)
 ```
+12V+ ──┬── LM2596 IN+
+       └── MOSFET module power-in block (+)
+12V− ──┬── LM2596 IN−                 [every − point below = one GND bus]
+       └── MOSFET module power-in block (−)
+
+LM2596 OUT+ (5.0V) ── board "5V" pin
+LM2596 OUT−      ── board GND
+100µF electrolytic: + leg → board 5V rail, stripe(−) leg → GND rail, near the board
+
+MOSFET OUT+ screw ── solenoid lead "+" (red if marked)
+MOSFET OUT− screw ── solenoid other lead
+1N4148 across solenoid leads: STRIPE → the "+" (OUT+) side   [2nd optional, parallel, same way]
+MOSFET TRIG/PWM (a.k.a. SIG/S) ── GP15
+MOSFET header GND ── GND bus
+
+3V3 ──┬── sensor 1 VCC
+      └── sensor 2 VCC
+GP26 ── sensor 1 AOUT ──(100nF "104" to GND)
+GP27 ── sensor 2 AOUT ──(100nF "104" to GND)
+GND bus ── sensor 1 GND, sensor 2 GND        (DOUT pins: nothing)
+
+GP14 ── 330Ω ── LED anode (long leg)      LED cathode (short/flat) ── GND bus
+```
+
+Numbered connections:
+| # | From | To |
+|---|---|---|
+| 1 | 12V supply + | LM2596 IN+ |
+| 2 | 12V supply + | MOSFET power-in block, + screw |
+| 3 | 12V supply − | LM2596 IN− |
+| 4 | 12V supply − | MOSFET power-in block, − screw |
+| 5 | LM2596 OUT+ (5.0V, pre-verified) | Board 5V pin |
+| 6 | LM2596 OUT− | Board GND |
+| 7 | 100µF + leg / stripe leg | 5V rail / GND rail (near board) |
+| 8 | MOSFET OUT+ screw | Solenoid "+" lead (red if marked) |
+| 9 | MOSFET OUT− screw | Solenoid other lead |
+| 10 | 1N4148 stripe end | Solenoid "+" lead (OUT+ side); other end to the other lead. 2nd diode optional, parallel, same orientation |
+| 11 | MOSFET TRIG/PWM header | GP15 |
+| 12 | MOSFET GND header | GND bus |
+| 13 | Board 3V3 | Sensor 1 VCC |
+| 14 | Board 3V3 | Sensor 2 VCC |
+| 15 | Sensor 1 GND | GND bus |
+| 16 | Sensor 2 GND | GND bus |
+| 17 | Sensor 1 AOUT | GP26 |
+| 18 | Sensor 2 AOUT | GP27 |
+| 19 | 100nF #1 ("104") | Sensor 1 AOUT ↔ GND |
+| 20 | 100nF #2 ("104") | Sensor 2 AOUT ↔ GND |
+| 21 | Sensor DOUT pins (both) | Unconnected |
+| 22 | GP14 → 330Ω | LED anode (long leg) |
+| 23 | LED cathode (short leg, flat side) | GND bus |
+| 24 | Board pins in total | GP26, GP27, GP15, GP14, 3V3, 5V, GND — all others unconnected |
+
+Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the supply when the valve opens); 100µF stripe to GND (reversed = vents); 100nF and 330Ω have no polarity; the solenoid itself is polarity-insensitive — the flyback diode defines the "+" lead. Any board GND pin may be used (same net). Verify the module's IN vs OUT blocks from silkscreen and multimeter before connecting the solenoid: OUT must be dead until TRIG is driven.
 
 ## 3. Firmware platform
 - **arduino-pico (Earle Philhower) core**, board selection "Waveshare RP2040-Zero". C/C++. Two files: the sketch (`.ino` or `src/main.cpp`) + **`config.h`** holding every constant in §8.
