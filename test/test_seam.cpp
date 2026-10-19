@@ -19,7 +19,10 @@ void test_config_constants_reach_native_tests() {
 }
 
 void test_unguarded_region_is_callable() {
-    TEST_ASSERT_EQUAL_UINT32(1, seamVersion());          // pure region reachable from host
+    // Pure region reachable from host — time helpers replaced the seamVersion() probe
+    // when the first real logic landed (P1.M1.T2.S1).
+    TEST_ASSERT_EQUAL_UINT32(0, elapsedMs(1000, 1000));
+    TEST_ASSERT_TRUE(deadlinePassed(1000, 1000));
 }
 
 int main() {  // REQUIRED on PIO 6.2.0 — no auto-generated Unity runner (verified live)

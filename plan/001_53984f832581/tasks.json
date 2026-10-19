@@ -11,7 +11,7 @@
           "type": "Milestone",
           "id": "P1.M1",
           "title": "Scaffold, config.h and safe skeleton",
-          "status": "Planned",
+          "status": "Researching",
           "description": "Create the repo layout that builds in both Arduino IDE and PlatformIO, author config.h as the single tunables surface, establish the native-test seam, and land the non-negotiable safety skeleton: valve LOW as line 1 of setup(), hardware watchdog fed every loop pass, rollover-safe time utilities, unplug-safe serial logging.",
           "tasks": [
             {
@@ -64,7 +64,7 @@
               "type": "Task",
               "id": "P1.M1.T2",
               "title": "Safe-loop foundation: watchdog, time utilities, logging policy",
-              "status": "Planned",
+              "status": "Researching",
               "description": "The timing and supervision bedrock every other component consumes: wrap-safe millis arithmetic, hardware watchdog, and a serial logging policy that cannot stall the device when USB is absent.",
               "subtasks": [
                 {
@@ -86,7 +86,7 @@
                   "type": "Subtask",
                   "id": "P1.M1.T2.S2",
                   "title": "Hardware watchdog service and unplug-safe serial logging",
-                  "status": "Planned",
+                  "status": "Failed",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T1.S2"
@@ -114,14 +114,14 @@
               "type": "Task",
               "id": "P1.M2.T1",
               "title": "Pure button classifier",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Debounce + press-length classification that emits ShortPress/LongPress on release only.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T1.S1",
                   "title": "ButtonClassifier: 40ms debounce, 1000ms long threshold, events on release (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M1.T2.S1"
