@@ -33,6 +33,7 @@ uint32_t elapsedMs(uint32_t now, uint32_t since);      // rollover-safe elapsed 
 bool deadlinePassed(uint32_t now, uint32_t deadline);  // rollover-safe deadline check (P1.M1.T2.S1)
 size_t formatBootBanner(char* buf, size_t bufLen, bool watchdogCaused);  // pure banner text (P1.M1.T2.S2)
 uint16_t medianOf(uint16_t* values, size_t n);   // median of n counts, sorts in place (P1.M3.T1.S1)
+uint32_t backstopMinutes(uint32_t recoveryMin);  // concave backstop table lookup, floored (P1.M4.T1.S1)
 void logLine(const char* fmt, ...);  // bounded, newline-terminated CDC log line (P1.M1.T2.S2; ARDUINO region only)
 void setup();             // hardware only (#ifdef ARDUINO)
 void loop();              // hardware only (#ifdef ARDUINO)
@@ -550,6 +551,63 @@ private:
     uint16_t wetThreshold2_;  // baseline2 − TRIP_DROP_COUNTS, set by begin()
 };
 // ========= end false-trip guards (consumed by P1.M6.T1.S2, P1.M6.T1.S3) =========
+
+// ===================== Backstop table interpolation (P1.M4.T1.S1) =====================
+// Timer model (PRD §6.2), pure: the CONCAVE backstop curve. Given minutes of
+// recovery since the previous fill's valve closed (wall-clock recovery owned
+// by P1.M4.T2.S1), return the maximum valve-open minutes granted to a fill
+// started at that recovery — piecewise-LINEAR between the BACKSTOP_TABLE_MIN
+// knots, CLAMPED at both ends:
+//   recovery <= 2 min   -> 44   (steep: tank refills fast at low back-pressure)
+//   recovery >= 60 min  -> 30   (flat: near-full tank, high pressure, slow fill)
+// The concave shape is DELIBERATE (PRD §6.2): a straight line pads the
+// mid-range in exactly the wrong direction. Interpolate between the given
+// knots ONLY — no smoothing, no safety padding (§6 "never padded").
+//
+// ROUNDING (contract, explicit): the interpolated RESULT is FLOORED to whole
+// minutes. Every segment falls (b1 < b0), and for integer b0:
+//   floor(b0 - x) == b0 - ceil(x)
+// so the DROP is computed with a CEILING division of strictly non-negative
+// integers. A plain truncating '/' on the drop would round the result UP =
+// a longer valve time = forbidden padding. Integer math only, no floats.
+// Unsigned-safe by construction: (b0-b1), (recoveryMin-r0), (r1-r0) are all
+// >= 0 inside a segment and the product stays <= 44*58 << 2^32.
+//
+// Caller contract (P1.M4.T2.S1 — computed ONCE at fill start, PRD §6.2):
+//   budget = backstopMinutes(recoveryMinutesAtFillStart);
+// Fresh boot / any reset has NO history: the caller uses FRESH_BOOT_BACKSTOP_MIN
+// directly and never calls this with a fabricated recovery. A long-press +5
+// (PLUS5_MIN) extends the ACTIVE fill's deadline only — never this table.
+uint32_t backstopMinutes(uint32_t recoveryMin) {
+    // Widen knot fields once (uint16_t -> uint32_t): every comparison and
+    // subtraction below is plain unsigned 32-bit — no mixed-sign arithmetic.
+    const uint32_t firstR = (uint32_t)BACKSTOP_TABLE_MIN[0].recoveryMin;
+    const uint32_t firstB = (uint32_t)BACKSTOP_TABLE_MIN[0].backstopMin;
+    const uint32_t lastR =
+        (uint32_t)BACKSTOP_TABLE_MIN[BACKSTOP_TABLE_LEN - 1].recoveryMin;
+    const uint32_t lastB =
+        (uint32_t)BACKSTOP_TABLE_MIN[BACKSTOP_TABLE_LEN - 1].backstopMin;
+
+    if (recoveryMin >= lastR) return lastB;    // clamp high:  >= 60 min -> 30
+    if (recoveryMin <= firstR) return firstB;  // clamp low:   <= 2 min  -> 44
+
+    // Here 2 < recoveryMin < 60: find the bracketing knot pair. The loop stops
+    // at i == BACKSTOP_TABLE_LEN - 2 at the latest (recoveryMin < 60), so the
+    // i + 1 access never runs out of bounds.
+    uint8_t i = 0;
+    while (recoveryMin >= (uint32_t)BACKSTOP_TABLE_MIN[i + 1].recoveryMin) ++i;
+    const uint32_t r0 = BACKSTOP_TABLE_MIN[i].recoveryMin;      // left knot recovery
+    const uint32_t b0 = BACKSTOP_TABLE_MIN[i].backstopMin;      // left knot backstop
+    const uint32_t r1 = BACKSTOP_TABLE_MIN[i + 1].recoveryMin;  // right knot recovery
+    const uint32_t b1 = BACKSTOP_TABLE_MIN[i + 1].backstopMin;  // right knot backstop
+
+    // Ceiling division of the non-negative drop (see ROUNDING above):
+    //   drop_exact = (b0 - b1) * (recoveryMin - r0) / (r1 - r0)
+    const uint32_t drop =
+        ((b0 - b1) * (recoveryMin - r0) + (r1 - r0) - 1) / (r1 - r0);
+    return b0 - drop;  // == floor of the exact interpolated backstop, minutes
+}
+// ===== end backstop interpolation (consumed by P1.M4.T2.S1, P1.M6.T1.S2) =====
 
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
