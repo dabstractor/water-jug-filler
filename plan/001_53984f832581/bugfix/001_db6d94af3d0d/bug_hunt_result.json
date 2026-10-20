@@ -1,0 +1,35 @@
+{
+  "hasBugs": true,
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "severity": "minor",
+      "title": "COMMISSIONING.md §5a cites impossible/contradictory FILL-start log examples",
+      "description": "The backstop-tuning runbook (Stage 5a, PRD §9.5) tells the operator to read recovery off a 'FILL start' line, but its example line contradicts the actual firmware output. firmware/jug_filler/jug_filler.ino formatFillLogEvent() derives recmin = recovery_ms/60000 (truncated), so 'recovery=8200ms' can only ever print 'recmin=0' (as the same document correctly shows at lines 350, 364 and 525). Line 434 instead shows 'FILL start backstop=44min recovery=8200ms recmin=2', and line 436 states 'truncated: 599999 ms → 0' — 599999 ms actually truncates to recmin=9 (README.md:51 documents the correct value). A non-author following §5a during calibration could mis-record the recovery bucket used to place BACKSTOP_TABLE_MIN knots. No firmware behavior is affected; the doc examples are wrong.",
+      "reproduction": "1) Open docs/COMMISSIONING.md lines 433-437 (Stage 5a 'Record per fill'). 2) Compare with the formatter at firmware/jug_filler/jug_filler.ino:1356-1358 ('recmin=%u', e.b/60000u) and with the correct examples at docs/COMMISSIONING.md:350/364/525 and README.md:51. 3) 8200/60000 = 0 (not 2); 599999/60000 = 9 (not 0).",
+      "location": "docs/COMMISSIONING.md:434-436"
+    },
+    {
+      "id": "BUG-002",
+      "severity": "minor",
+      "title": "README serial-log table shows impossible 'BTN short 1234ms' example",
+      "description": "README.md:49 documents the boot-button log line with the example 'BTN short 1234ms'. A press is classified Short only when the hold is < BUTTON_LONG_PRESS_MS (1000 ms); the logged hold is the raw edge-to-edge span, which tracks the debounced hold within contact-bounce (~tens of ms). A 1234 ms hold therefore always logs as 'BTN long 1234ms' — the 'short' example value can never occur and contradicts the PRD §5.1 classification the same row describes. Cosmetic documentation defect only; no firmware behavior affected.",
+      "reproduction": "1) Open README.md line 49 (Serial logging table, BTN row). 2) Note 'BTN short 1234ms'. 3) Per config.h BUTTON_LONG_PRESS_MS=1000 and ButtonClassifier in jug_filler.ino (hold >= 1000 → LongPress), any 1234 ms hold logs 'BTN long 1234ms'.",
+      "location": "README.md:49"
+    },
+    {
+      "id": "BUG-003",
+      "severity": "minor",
+      "title": "Physical bench validation of PRD §9 flows and fault paths not executed (no evidence)",
+      "description": "PRD §9 (steps 1, 2, 4) and plan task P1.M7.T2.S1 require a physical bench dry-run — flows 1 and 2 with hand-dipped sensors, fault-path blink codes, valve dry-fire, and captured serial logs as evidence under docs/bench/. The directory docs/bench/ does not exist and the task remains 'Planned' in plan tasks.json. This is an outstanding deliverable/process gap, not a code defect: the firmware side is complete (it compiles for the board, all 214 native tests pass, and the log stream carries everything §9.3/§9.5 need), but the hardware-validated sign-off (including the optional watchdog-reset check) has not been performed or recorded.",
+      "reproduction": "1) ls docs/ → only COMMISSIONING.md; docs/bench/ missing. 2) plan/001_53984f832581/tasks.json shows P1.M7.T2.S1 status 'Planned'. 3) No bench log evidence anywhere in the repo.",
+      "location": "docs/bench/ (missing)"
+    }
+  ],
+  "summary": "Deep PRD-conformance hunt on the jug-filler firmware. Verified: all 214 native Unity tests pass; the RP2040 (pico env) build compiles clean; structural safety checks hold (setup() line 1 drives PIN_VALVE LOW, loop() feeds the watchdog first, zero delay(), no while(!Serial)); config.h carries every §8 tunable with correct defaults; the §5.1 button table is implemented cell-exact; the §6 concave backstop table interpolates/clamps/floors correctly (fresh-boot 30-min default, once-per-fill computation, stacking +5, abort restarts the recovery clock); §7 lifecycle (baseline plausibility gate refusing valve open, inclusive trip threshold with 8-reading debounce, 12-s confirm window, early-wet/early-trip guards with correct boundaries at 5.000 s / 60.000 s, fault codes 1/2/3 with latching, valve-closed-first on every exit) and the §4 LED contract (done triple-pulse, fault blink groups, ack overlay) all behave per spec. I additionally wrote an independent adversarial harness (15 checks, all passing) targeting what the shipped suite had not covered: millis() rollover at the whole-engine level (fill spanning the 2^32 wrap, backstop deadline across the wrap, confirm window across the wrap, long-press classification across the wrap), same-step races (double-trip completing a fill in one step with 5 ordered log events, +5 during the settle phase, abort during settle), and boundary instants. Log-line formats were cross-checked against README documentation. The only defects found are three minor documentation/deliverable issues (impossible example values in the calibration runbook and README, and the not-yet-executed physical bench validation). Overall quality: high — the pure-logic/hardware seam paid off; no behavioral bugs found.",
+  "recommendations": [
+    "Fix the two contradictory example values (docs/COMMISSIONING.md:434-436 and README.md:49) so the §9.5 calibration workflow reads recovery values that can actually appear on the log stream.",
+    "Execute the deferred physical bench validation (P1.M7.T2.S1: flows 1/2, fault blink codes, optional watchdog check) on USB-only power and capture the serial logs under docs/bench/.",
+    "Optionally update plan tasks.json statuses (owned by the orchestrator) — implemented work such as P1.M6.T2.S1/P1.M7.T1.S1/P2.M1.T2.S1 still shows Planned/Researching."
+  ]
+}
