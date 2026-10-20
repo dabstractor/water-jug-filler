@@ -6,7 +6,8 @@ Fill a 4 gallon jug with RO water and shut the valve automatically when the wate
 ## 1. Hardware / BOM
 | Part | Role |
 |---|---|
-| Waveshare RP2040-Zero (RP2040, 2MB flash, 3.3 V logic) | Controller. Onboard BOOT + RESET buttons (both used). Onboard WS2812 RGB LED on GP16 — the sole status/fault indicator (§4). Exposed pins: GP0–GP15 and GP26–GP29. **GP16–GP25 exist only as microscopic back pads — treat as unusable.** |
+| Waveshare RP2040-Zero (RP2040, 2MB flash, 3.3 V logic) | Controller. Onboard BOOT + RESET buttons (both used). Onboard WS2812 RGB LED on GP16 — the color-mirror half of the dual status/fault indicator (§4; the authoritative half is the external green LED on GP14). Exposed pins: GP0–GP15 and GP26–GP29. **GP16–GP25 exist only as microscopic back pads — treat as unusable.** |
+| Green LED + 330 Ω resistor | External status/fault indicator — the **authoritative** half of the dual indicator (§4). GP14 → 330 Ω → anode, cathode → GND |
 | FPD180A solenoid, 12V, ~400mA, normally closed | Water valve. NC = power loss closes it |
 | Logic-level MOSFET module (IRLZ44N / IRL520 class) | Switches the valve from a 3.3 V gate — see §2. Gate pull-down is on the module |
 | 1N4148 diode (second optional, in parallel) | Flyback across the solenoid, stripe toward +12V |
@@ -28,9 +29,10 @@ Fill a 4 gallon jug with RO water and shut the valve automatically when the wate
 | **GND** | All grounds common: 12V supply, buck, MOSFET module, sensors | |
 | BOOTSEL (onboard, no wiring) | Control button | Read in firmware via arduino-pico's `BOOTSEL` pseudo-pin (`pinMode(BOOTSEL, INPUT_PULLUP)`, `digitalRead`). Cannot enter bootloader unless RESET is held too |
 | RESET (onboard, no wiring) | Full device reset | |
-| GP16 (onboard, no wiring) | WS2812 RGB LED — sole status/fault indicator | Driven in firmware via a NeoPixel library (e.g. Adafruit_NeoPixel, supported on arduino-pico) |
+| **GP14** | External green LED anode via 330 Ω (cathode → GND) | **Authoritative status/fault indicator** (§4). HIGH = on; shows every §4 pattern shape as on/off |
+| GP16 (onboard, no wiring) | WS2812 RGB LED — color mirror of the status/fault indicator | Config-gated (`USE_ONBOARD_RGB`); driven in firmware by a PIO-based WS2812 driver (builds in Arduino IDE with just the core). Mirrors the GP14 level with color (§4). If mirror init fails, one diagnostic log line and the mirror stays off — the GP14 LED still shows every pattern |
 
-Spares: GP28/GP29 (ADC2/ADC3), GP14, and GP2–GP13, all unwired. Reserved: GP0/GP1 (UART0 TX/RX) for debug serial. Unusable: GP16–GP25 (back pads).
+Spares: GP28/GP29 (ADC2/ADC3) and GP2–GP13, all unwired (GP14 is wired to the external green LED, §2.3). Reserved: GP0/GP1 (UART0 TX/RX) for debug serial. Unusable: GP16–GP25 (back pads; the GP16 WS2812 is onboard — no wiring).
 
 ### 2.2 Power path & cautions
 - 12V → MOSFET module power-input terminals and LM2596 input. Buck 5V → board **5V** pin. Sensors from **3V3**.
@@ -64,6 +66,7 @@ MOSFET header GND ── GND bus
 GP26 ── sensor 1 AOUT ──(100nF "104" to GND)
 GP27 ── sensor 2 AOUT ──(100nF "104" to GND)
 GND bus ── sensor 1 GND, sensor 2 GND        (DOUT pins: nothing)
+GP14 ── 330 Ω ── green LED anode; LED cathode ── GND bus   [authoritative status/fault indicator, §4]
 ```
 
 Numbered connections:
@@ -90,7 +93,8 @@ Numbered connections:
 | 19 | 100nF #1 ("104") | Sensor 1 AOUT ↔ GND |
 | 20 | 100nF #2 ("104") | Sensor 2 AOUT ↔ GND |
 | 21 | Sensor DOUT pins (both) | Unconnected |
-| 22 | Board pins wired, total | GP26, GP27, GP15, 3V3, 5V, GND — all others unconnected (the WS2812 on GP16 is onboard; no wiring) |
+| 22 | Board GP14 | 330 Ω → external green LED anode; LED cathode → GND bus |
+| 23 | Board pins wired, total | GP26, GP27, GP15, GP14, 3V3, 5V, GND — all others unconnected (the WS2812 on GP16 is onboard; no wiring) |
 
 Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the supply when the valve opens); 100µF stripe to GND (reversed = vents); 100nF have no polarity; the solenoid itself is polarity-insensitive — the flyback diode defines the "+" lead. Any board GND pin may be used (same net). Verify the module's IN vs OUT blocks from silkscreen and multimeter before connecting the solenoid: OUT must be dead until TRIG is driven.
 
@@ -101,17 +105,17 @@ Orientation rules: 1N4148 stripe to the +12V side (reversed = short across the s
 - **No persistence of any kind.** No EEPROM, no flash writes. All state is RAM; any reset starts fresh (see §5.3).
 
 ## 4. States and LED contract
-Five states. The onboard WS2812 RGB LED (GP16) is the **sole** status/fault indicator — there is no external LED. Driven in firmware via a NeoPixel library; colors are config constants.
+Five states. Status/fault signaling is a **dual indicator** with one pattern: the external green LED on GP14 (GP14 → 330 Ω → anode, cathode → GND; HIGH = on) is the **authoritative** indicator and renders every pattern shape as on/off; the onboard WS2812 RGB LED (GP16) is a config-gated color mirror (`USE_ONBOARD_RGB`, brightness capped at `RGB_BRIGHTNESS = 60` for the 3.3 V LDO budget, §2.2) driven by a PIO-based WS2812 driver; colors are config constants. Both indicators show the same shape at the same instants — the mirror only adds color. Fail-safe: if WS2812 init fails at boot (one diagnostic log line, `RGB mirror init FAILED`), the mirror stays off and GP14 still shows every pattern — signaling never depends on the mirror.
 
-| State | Meaning | WS2812 output |
+| State | Meaning | GP14 (authoritative) / WS2812 color |
 |---|---|---|
-| **IDLE** | Powered, waiting for BOOT press | Off |
-| **FILLING** | Valve open, timer running, watching sensors | Solid blue |
-| **CONFIRM** | First sensor tripped, valve closed, waiting out the confirm window for the second sensor | Solid blue (continues) |
-| **DONE** | Fill complete; attention pattern until acknowledged | **Green triple-pulse attention blink**: 3x (on 200ms / off 200ms), then off 1000ms, repeat |
-| **FAULT** | Latched fault; see §7 | Red blink-code groups (§7) |
+| **IDLE** | Powered, waiting for BOOT press | Off / off (black) |
+| **FILLING** | Valve open, timer running, watching sensors | Solid on / solid blue |
+| **CONFIRM** | First sensor tripped, valve closed, waiting out the confirm window for the second sensor | Solid on (continues) / solid blue (continues) |
+| **DONE** | Fill complete; attention pattern until acknowledged | **Triple-pulse attention blink**: 3x (on 200ms / off 200ms), then off 1000ms, repeat / green |
+| **FAULT** | Latched fault; see §7 | Blink-code groups (§7) / red |
 
-Transient ack: a +5min long-press during FILLING flashes white 3x quickly (on 100ms / off 100ms), then resumes solid blue.
+Transient ack: a +5min long-press during FILLING overlays a fast 3x flash (on 100ms / off 100ms) on the GP14 LED; the WS2812 mirror shows it as a fast blue blink (its base color stays solid blue), then both resume the base pattern.
 
 ## 5. Button & reset semantics
 ### 5.1 BOOT button — acts on RELEASE
@@ -172,7 +176,7 @@ Physics: the tank refills fast at first (low back-pressure) and progressively sl
 | 2 | Sensor 2 bad (same) |
 | 3 | Timer fired, no trip |
 
-- Fault cadence (red, WS2812): N x (on 250ms / off 250ms), off 2000ms, repeat.
+- Fault cadence: N x (on 250ms / off 250ms), off 2000ms, repeat — red on the WS2812 mirror, on/off on the GP14 LED.
 - **Faults latch.** Cleared only by RESET or power cycle (which also clears tank history — next fill defaults to 30 min). BOOT is ignored while faulted.
 - While faulted, the valve refuses to open.
 
@@ -183,6 +187,7 @@ All pins, timings, thresholds, and patterns live in `config.h`, grouped, comment
 // ---- Pins (RP2040-Zero) ----
 PIN_SENSOR1 = GP26; PIN_SENSOR2 = GP27;   // AOUT, ADC0/ADC1
 PIN_VALVE   = GP15;                        // HIGH = open
+PIN_LED     = GP14;                        // external green LED via 330 Ω — authoritative status/fault indicator, HIGH = on
 
 // ---- Button ----
 BUTTON_LONG_PRESS_MS = 1000; BUTTON_DEBOUNCE_MS = 40;
@@ -201,9 +206,11 @@ BASELINE_SETTLE_MS = 2000;
 BASELINE_MIN = 2000; BASELINE_MAX = 4050;  // plausible dry range, 12-bit counts
 TRIP_DROP_COUNTS = 350; DEBOUNCE_COUNT = 8;
 
-// ---- Onboard WS2812 status LED (GP16) ----
-NEO_PIN = 16;                              // onboard RGB LED, sole indicator
-RGB_BRIGHTNESS = 180;                      // single pixel ≤60mA at full white
+// ---- Status/fault indicators ----
+PIN_LED = GP14;                            // external green LED via 330 Ω — authoritative indicator (§4)
+USE_ONBOARD_RGB = true;                    // mirror patterns on the onboard WS2812 (GP16); false = GP14 only
+NEO_PIN = 16;                              // onboard RGB LED, color mirror (config-gated)
+RGB_BRIGHTNESS = 60;                       // 0–255 WS2812 brightness cap; ≤60 for the 3V3 LDO budget (§2.2)
 COLOR_FILLING = (0,0,255); COLOR_DONE = (0,255,0); COLOR_FAULT = (255,0,0); COLOR_ACK = (255,255,255);
 DONE_PULSE_{ON,OFF}_MS = 200; DONE_PULSE_COUNT = 3; DONE_GAP_MS = 1000;
 FAULT_BLINK_MS = 250; FAULT_PAUSE_MS = 2000; ACK_BLINK_MS = 100;
@@ -213,7 +220,7 @@ SERIAL_BAUD = 115200; WATCHDOG_TIMEOUT_S = 8;
 ```
 
 ## 9. Commissioning & calibration
-1. **Dry bench check:** flash the firmware; verify IDLE state (LED off), BOOT press logging (BOOTSEL reads), and that the WS2812 renders the §4 patterns. Dry-fire the valve with short clicks (<5s each to avoid overheating the solenoid).
+1. **Dry bench check:** flash the firmware; verify IDLE state (LED off), BOOT press logging (BOOTSEL reads), and that both indicators render the §4 patterns — GP14 shows every shape, the WS2812 mirror adds the colors. A `RGB mirror init FAILED` log line means the mirror is off and GP14 alone shows the patterns (§4). Dry-fire the valve with short clicks (<5s each to avoid overheating the solenoid).
 2. **Power rails:** bench sessions are USB-powered with the buck disconnected from the board (12V may feed the MOSFET module alone for valve tests). With the buck powering the 5V pin (USB unplugged), confirm 4.9–5.1V at the 5V pin. Never USB and buck together (§2.2).
 3. **Sensor calibration (sets the provisional constants above):** sensors in open air → log dry baselines (expect ~3000–3900 counts at 3.3V); tips submerged to mount depth → log wet values. Set `BASELINE_MIN/MAX` around the observed dry range and `TRIP_DROP_COUNTS` at roughly half the observed dry→wet delta.
 4. **Dry-run flows 1 and 2** (§5.2) with sensors dipped in a cup by hand.

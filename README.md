@@ -1,7 +1,8 @@
 # jug-filler
 
 Firmware for an automatic water-jug filler: two analog water-level sensors, one
-solenoid valve, one status LED — on a Waveshare RP2040-Zero (RP2040) board.
+solenoid valve, one authoritative status LED on GP14 (mirrored with color by the
+onboard WS2812) — on a Waveshare RP2040-Zero (RP2040) board.
 All tunables live in [`firmware/jug_filler/config.h`](firmware/jug_filler/config.h).
 
 ## Repo layout

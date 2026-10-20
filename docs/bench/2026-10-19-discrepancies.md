@@ -46,6 +46,18 @@ Rules (binding — docs/bench/README.md §1):
 
 - Action: documentation reconciliation only — file a follow-up issue; do NOT edit
   spec/SPEC.md in this changeset (bench evidence package §6; Mode A).
-- Follow-up issue: proposed: BUG-004 — LED indicator documentation (SPEC §4
-  sole-indicator claim vs GP14 external LED + WS2812 mirror)
-- Status: open (proposed)
+- Follow-up issue: BUG-004 — LED indicator documentation (SPEC §4 sole-indicator
+  claim vs GP14 external LED + WS2812 mirror)
+- Resolution: spec/SPEC.md reconciled to the implemented dual-indicator firmware
+  (BUG-004): §1 BOM names the GP14 green LED + 330 Ω as the authoritative
+  indicator with the GP16 WS2812 as color mirror; §2.1 pins GP14 and drops it
+  from the spares; §2.3 netlist + numbered connections add the GP14 wiring;
+  §4 states the dual-indicator contract (GP14 authoritative, WS2812 config-gated
+  mirror, mirror init failure fails safe) with `RGB_BRIGHTNESS = 60`;
+  §8 config contract gains `PIN_LED`/`USE_ONBOARD_RGB`/`RGB_BRIGHTNESS`;
+  §9 dry-bench check covers both indicators. Physical bench confirmation of
+  which indicators render each pattern remains outstanding with sessions A–E
+  (all BLOCKED — rig unavailable; captured logs still required per §9 of the
+  PRD). The quoted SPEC lines above are kept verbatim as the historical record
+  of the pre-reconciliation state.
+- Status: closed (documentation reconciled; physical bench confirmation outstanding)
