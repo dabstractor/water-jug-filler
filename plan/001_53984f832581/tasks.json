@@ -4,7 +4,7 @@
       "type": "Phase",
       "id": "P1",
       "title": "Bench-complete fill-controller firmware (MVP)",
-      "status": "Planned",
+      "status": "Researching",
       "description": "Implement the entire PRD firmware contract (states, button semantics, backstop timer model, sensor trip logic, faults, LED contract, safety invariants) as two files (sketch + config.h) on the arduino-pico core, with every behavioral rule unit-tested natively on the host via a pure-logic/hardware seam, ending with USB-only bench validation of flows 1 and 2 (PRD sections 3-10).",
       "milestones": [
         {
@@ -550,21 +550,21 @@
           "type": "Milestone",
           "id": "P1.M7",
           "title": "Integration validation: invariants and bench dry-run",
-          "status": "Planned",
+          "status": "Researching",
           "description": "Prove the safety invariants hold under adversarial input sequences, then physically walk flows 1 and 2 plus fault paths on the bench under USB-only power.",
           "tasks": [
             {
               "type": "Task",
               "id": "P1.M7.T1",
               "title": "Safety invariant verification suite",
-              "status": "Researching",
+              "status": "Complete",
               "description": "Native property/fuzz tests plus structural checks for every section 10 invariant.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M7.T1.S1",
                   "title": "Property tests: no auto-open, valve LOW first, close-on-every-exit",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M6.T2.S1"
@@ -583,14 +583,14 @@
               "type": "Task",
               "id": "P1.M7.T2",
               "title": "Bench dry-run of flows 1 and 2 and fault paths",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Physical validation per section 9 steps 1, 2 and 4 with sensors hand-dipped and the valve dry-fired, on USB power only.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M7.T2.S1",
                   "title": "Execute bench validation: power rules, flows 1/2, fault blink codes, log capture",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M7.T1.S1"
