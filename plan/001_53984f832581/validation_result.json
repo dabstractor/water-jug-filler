@@ -1,0 +1,5 @@
+{
+  "hasIssues": true,
+  "issueCount": 2,
+  "summary": "All 25 validation phases and 235 independent E2E checks pass (214/214 unit tests, device build clean, safety invariants hold under fuzz); 2 minor issues: README calls existing docs/COMMISSIONING.md '(planned)', and %lu/uint32_t varargs mismatches (host-only latent UB) in the log formatters."
+}

@@ -1354,37 +1354,41 @@ size_t formatFillLogEvent(char* buf, size_t bufLen, const FillLogEvent& e) {
         case FillLogEvent::Kind::FillStart:  // a: table min; b: recovery ms (0 = fresh boot)
             return (size_t)snprintf(buf, bufLen,
                                     "FILL start backstop=%umin recovery=%lums recmin=%u",
-                                    e.a, e.b, (unsigned)(e.b / 60000u));
+                                    e.a, (unsigned long)e.b, (unsigned)(e.b / 60000u));
         case FillLogEvent::Kind::BaselineOk:  // a/b: dry baselines, counts
             return (size_t)snprintf(buf, bufLen, "BASE ok s1=%u s2=%u", e.a, e.b);
         case FillLogEvent::Kind::BaselineFault:  // b: failing sensor's observed count
             return (size_t)snprintf(buf, bufLen, "FAULT baseline sensor=%u code=%u count=%lu",
-                                    (unsigned)(e.sensor + 1), e.a, e.b);
+                                    (unsigned)(e.sensor + 1), e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::ValveOpen:  // a: budget minutes at open (incl. stacked +5s)
             return (size_t)snprintf(buf, bufLen, "VALVE open budget=%umin", e.a);
         case FillLogEvent::Kind::Trip:  // a: valve-open ms at first trip
             return (size_t)snprintf(buf, bufLen, "TRIP sensor=%u fillms=%lu",
-                                    (unsigned)(e.sensor + 1), e.a);
+                                    (unsigned)(e.sensor + 1), (unsigned long)e.a);
         case FillLogEvent::Kind::ConfirmPass:  // a: confirm duration ms
             return (size_t)snprintf(buf, bufLen, "CONFIRM pass sensor=%u durms=%lu",
-                                    (unsigned)(e.sensor + 1), e.a);
+                                    (unsigned)(e.sensor + 1), (unsigned long)e.a);
         case FillLogEvent::Kind::Done:  // a: press->close ms; b: valve-open ms
-            return (size_t)snprintf(buf, bufLen, "DONE attemptms=%lu openms=%lu", e.a, e.b);
+            return (size_t)snprintf(buf, bufLen,
+                                    "DONE attemptms=%lu openms=%lu",
+                                    (unsigned long)e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::Abort:  // a: attempt ms; b: open ms (0 ⇒ never opened)
-            return (size_t)snprintf(buf, bufLen, "ABORT attemptms=%lu openms=%lu", e.a, e.b);
+            return (size_t)snprintf(buf, bufLen,
+                                    "ABORT attemptms=%lu openms=%lu",
+                                    (unsigned long)e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::EarlyWetFault:  // b: fill ms at fault
             return (size_t)snprintf(buf, bufLen, "FAULT earlywet sensor=%u code=%u fillms=%lu",
-                                    (unsigned)(e.sensor + 1), e.a, e.b);
+                                    (unsigned)(e.sensor + 1), e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::EarlyTripFault:  // b: fill ms at fault
             return (size_t)snprintf(buf, bufLen, "FAULT earlytrip sensor=%u code=%u fillms=%lu",
-                                    (unsigned)(e.sensor + 1), e.a, e.b);
+                                    (unsigned)(e.sensor + 1), e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::BackstopExpired:  // a: budget min (incl. +5s); b: open ms
             return (size_t)snprintf(buf, bufLen,
                                     "FAULT backstop code=3 budget=%umin openms=%lums",
-                                    e.a, e.b);
+                                    e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::ConfirmTimeout:  // b: confirm-window elapsed ms
             return (size_t)snprintf(buf, bufLen, "FAULT confirm sensor=%u code=%u durms=%lu",
-                                    (unsigned)(e.sensor + 1), e.a, e.b);
+                                    (unsigned)(e.sensor + 1), e.a, (unsigned long)e.b);
         case FillLogEvent::Kind::Plus5:  // a: new total budget minutes
             return (size_t)snprintf(buf, bufLen, "PLUS5 budget=%umin", e.a);
         case FillLogEvent::Kind::Ack:
@@ -1484,8 +1488,9 @@ static uint8_t                s_prevFaultCode = 0;
 // above). The exact formats live in the PURE formatter formatFillLogEvent()
 // (UNGUARDED region, P2.M1.T1.S1) and are native-tested in test/test_logfmt/ —
 // this glue only transmits. Formats are NORMATIVE — documented in README.md
-// "Serial logging". %lu with uint32_t payloads is the landed house precedent
-// (cf. the BTN line) — exact on arm-none-eabi AND host g++.
+// "Serial logging". %lu payloads are cast to (unsigned long) at every call
+// site (cf. the (unsigned) casts on %u fields) — exact on arm-none-eabi AND
+// defined, warning-free C++ on the host (uint32_t == unsigned int there).
 static void logFillEvent(const FillLogEvent& e) {
     char buf[96];  // longest final line ~60 chars; snprintf truncates safely
     formatFillLogEvent(buf, sizeof(buf), e);
@@ -1678,7 +1683,8 @@ void loop() {
   if (ev != ButtonClassifier::None) {  // fired exactly once, on accepted RELEASE
     const uint32_t holdMs = elapsedMs(s_btnFallMs, s_btnRiseMs);  // wrap-safe
     logLine("BTN %s %lums",
-            ev == ButtonClassifier::LongPress ? "long" : "short", holdMs);
+            ev == ButtonClassifier::LongPress ? "long" : "short",
+            (unsigned long)holdMs);
   }
   // ---- end BOOTSEL poll ----
   // ---- ADC sample / aggregate / commissioning log (P1.M3.T1.S2) — third stage ----

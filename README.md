@@ -66,8 +66,7 @@ unplugged; lines are dropped, never stalled. Newline-terminated lines:
 | `RGB mirror init FAILED (no PIO SM)` | onboard mirror disabled; external LED unaffected |
 
 Fault codes = LED blink groups (§7): 1 sensor 1, 2 sensor 2, 3 timer. Faults
-latch until RESET. Full commissioning log workflow: `docs/COMMISSIONING.md`
-(planned).
+latch until RESET. Full commissioning log workflow: `docs/COMMISSIONING.md`.
 
 Commissioning notes (PRD §9): every §9 step reads its numbers straight off
 these lines — set `BASELINE_MIN`/`MAX` from the dry/wet `S1=/S2=` values
