@@ -431,9 +431,9 @@ USB-powered sessions, so do the data-gathering fills on USB.
 
 For each attended fill, write down two numbers from the stream:
 
-- from `FILL start backstop=44min recovery=8200ms recmin=2` — the
+- from `FILL start backstop=44min recovery=8200ms recmin=0` — the
   **recovery** (`recmin` = whole minutes since the previous fill *end*,
-  truncated: 599999 ms → 0; `recovery=0ms` only ever means fresh boot);
+  truncated: 599999 ms → 9; `recovery=0ms` only ever means fresh boot);
 - from `DONE attemptms=80000 openms=75000` — the actual valve-open duration
   (`openms`).
 

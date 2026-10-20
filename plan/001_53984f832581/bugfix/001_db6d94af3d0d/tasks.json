@@ -4,32 +4,37 @@
       "type": "Phase",
       "id": "P1",
       "title": "Bug-fix changeset: log-example doc corrections and deferred bench validation evidence",
-      "status": "Ready",
+      "status": "Researching",
       "description": "Close the three minor issues from bug report 001_db6d94af3d0d: (1) two impossible recmin values in docs/COMMISSIONING.md Stage 5a, (2) one impossible 'BTN short 1234ms' example in README.md, (3) the never-executed physical bench validation (original plan P1.M7.T2.S1) with evidence captured under docs/bench/. No firmware behavior changes. Research findings live in plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/ (system_context.md, bench_evidence_package.md).",
       "milestones": [
         {
           "type": "Milestone",
           "id": "P1.M1",
           "title": "Correct impossible log-example values in user-facing docs (BUG-001, BUG-002)",
-          "status": "Ready",
+          "status": "Researching",
           "description": "Make every example serial-log value in docs/COMMISSIONING.md and README.md mechanically consistent with the firmware formatters, so the PRD section 9.5 calibration workflow reads recovery values that can actually appear on the stream. Exactly three wrong values exist repo-wide (scout-verified); nothing else in either doc changes.",
           "tasks": [
             {
               "type": "Task",
               "id": "P1.M1.T1",
               "title": "Fix COMMISSIONING.md Stage 5a FILL-start log examples (BUG-001)",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Stage 5a 'Record per fill' tells the operator to read recovery off a 'FILL start' line, but its example shows recmin=2 for recovery=8200ms and claims 'truncated: 599999 ms -> 0'. formatFillLogEvent() derives recmin = recovery_ms/60000 (truncated), so 8200ms -> recmin=0 and 599999ms -> 9 (as README.md:51 and COMMISSIONING.md:350/364/525 correctly show).",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T1.S1",
                   "title": "Correct recmin=2 -> recmin=0 and '599999 ms -> 0' -> '-> 9' in Stage 5a; grep-verify all recmin examples",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 0.5,
                   "dependencies": [],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.0", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/system_context.md sections 2-3: firmware/jug_filler/jug_filler.ino:1354-1357 prints 'FILL start backstop=%umin recovery=%lums recmin=%u' with recmin = (unsigned)(e.b / 60000u) (truncated). 8200/60000 = 0; 599999/60000 = 9. Exactly two defective values exist repo-wide; the examples at COMMISSIONING.md:329/350/364/525 and README.md:51 are already correct - do not touch them.\n2. INPUT: docs/COMMISSIONING.md as shipped (Stage 5a 'Record per fill' spans lines 430-453). No code or schema dependency; this is a pure documentation edit.\n3. LOGIC: Apply exactly two verbatim corrections from system_context.md section 3: line 434 '- from `FILL start backstop=44min recovery=8200ms recmin=2` - the' becomes the same line with recmin=0; line 436 'truncated: 599999 ms -> 0;' becomes 'truncated: 599999 ms -> 9;'. Then run the verification recipe (system_context.md section 6): grep -n 'recmin=' docs/COMMISSIONING.md README.md and assert every printed recmin equals floor(recovery_ms/60000) of its own example line and every prose truncation claim says 599999 ms -> 9. Implied TDD: the grep is the failing test before the edit and must pass after.\n4. OUTPUT: corrected docs/COMMISSIONING.md Stage 5a, byte-identical elsewhere, consumed as-is by P1.M2.T3.S2 (changeset-level sweep) which re-runs the same grep as its acceptance check.\n5. MOCKING: none - static documentation edit, no services, no build.\n6. DOCS: Mode A - this subtask IS the doc fix (docs/COMMISSIONING.md Stage 5a); no separate docs task rides along."
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/system_context.md sections 2-3: firmware/jug_filler/jug_filler.ino:1354-1357 prints 'FILL start backstop=%umin recovery=%lums recmin=%u' with recmin = (unsigned)(e.b / 60000u) (truncated). 8200/60000 = 0; 599999/60000 = 9. Exactly two defective values exist repo-wide; the examples at COMMISSIONING.md:329/350/364/525 and README.md:51 are already correct - do not touch them.\n2. INPUT: docs/COMMISSIONING.md as shipped (Stage 5a 'Record per fill' spans lines 430-453). No code or schema dependency; this is a pure documentation edit.\n3. LOGIC: Apply exactly two verbatim corrections from system_context.md section 3: line 434 '- from `FILL start backstop=44min recovery=8200ms recmin=2` - the' becomes the same line with recmin=0; line 436 'truncated: 599999 ms -> 0;' becomes 'truncated: 599999 ms -> 9;'. Then run the verification recipe (system_context.md section 6): grep -n 'recmin=' docs/COMMISSIONING.md README.md and assert every printed recmin equals floor(recovery_ms/60000) of its own example line and every prose truncation claim says 599999 ms -> 9. Implied TDD: the grep is the failing test before the edit and must pass after.\n4. OUTPUT: corrected docs/COMMISSIONING.md Stage 5a, byte-identical elsewhere, consumed as-is by P1.M2.T3.S2 (changeset-level sweep) which re-runs the same grep as its acceptance check.\n5. MOCKING: none - static documentation edit, no services, no build.\n6. DOCS: Mode A - this subtask IS the doc fix (docs/COMMISSIONING.md Stage 5a); no separate docs task rides along.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.0",
+                    "h2.5"
+                  ]
                 }
               ]
             },
@@ -37,18 +42,23 @@
               "type": "Task",
               "id": "P1.M1.T2",
               "title": "Fix README serial-log table BTN example (BUG-002)",
-              "status": "Planned",
+              "status": "Researching",
               "description": "README.md:49 documents the BOOT-press log row with example 'BTN short 1234ms'. A hold >= BUTTON_LONG_PRESS_MS (1000 ms) classifies as long, and the logged hold is the raw edge-to-edge span, so a 1234 ms hold always logs 'BTN long 1234ms' - the printed short example can never occur and contradicts the PRD section 5.1 classification the same row describes.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T2.S1",
                   "title": "Replace 'BTN short 1234ms' with a <1000 ms value in the README serial-log table row",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 0.5,
                   "dependencies": [],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.1", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/system_context.md sections 2 and 4: config.h:28 BUTTON_LONG_PRESS_MS = 1000; ButtonClassifier (jug_filler.ino:150) returns LongPress when holdMs >= 1000; the BTN line is emitted at jug_filler.ino:1685 with the raw edge-to-edge hold. Therefore every logged 'BTN short <n>ms' has n < 1000 and every 'BTN long <n>ms' has n >= 1000. spec/SPEC.md section 5.1 (lines 117-126) is the classification source of truth.\n2. INPUT: README.md as shipped, 'Serial logging' table (lines 41-78); the BTN row is line 49. No code dependency.\n3. LOGIC: In the line-49 row replace `BTN short 1234ms` with a value strictly < 1000 ms (suggested: `BTN short 340ms`); keep `BTN long 1500ms` (valid, 1500 >= 1000). Change nothing else in the row or table. Verify with system_context.md section 6 recipe: grep -n 'BTN short\\|BTN long' README.md docs/COMMISSIONING.md and assert short examples < 1000 and long examples >= 1000 everywhere. Implied TDD: grep fails on 1234 before, passes after.\n4. OUTPUT: corrected README.md serial-log table row, consumed by P1.M2.T3.S1 (changeset-level README sweep) which re-runs the same check.\n5. MOCKING: none - static documentation edit.\n6. DOCS: Mode A - this subtask IS the doc fix (README.md serial-log table)."
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/system_context.md sections 2 and 4: config.h:28 BUTTON_LONG_PRESS_MS = 1000; ButtonClassifier (jug_filler.ino:150) returns LongPress when holdMs >= 1000; the BTN line is emitted at jug_filler.ino:1685 with the raw edge-to-edge hold. Therefore every logged 'BTN short <n>ms' has n < 1000 and every 'BTN long <n>ms' has n >= 1000. spec/SPEC.md section 5.1 (lines 117-126) is the classification source of truth.\n2. INPUT: README.md as shipped, 'Serial logging' table (lines 41-78); the BTN row is line 49. No code dependency.\n3. LOGIC: In the line-49 row replace `BTN short 1234ms` with a value strictly < 1000 ms (suggested: `BTN short 340ms`); keep `BTN long 1500ms` (valid, 1500 >= 1000). Change nothing else in the row or table. Verify with system_context.md section 6 recipe: grep -n 'BTN short\\|BTN long' README.md docs/COMMISSIONING.md and assert short examples < 1000 and long examples >= 1000 everywhere. Implied TDD: grep fails on 1234 before, passes after.\n4. OUTPUT: corrected README.md serial-log table row, consumed by P1.M2.T3.S1 (changeset-level README sweep) which re-runs the same check.\n5. MOCKING: none - static documentation edit.\n6. DOCS: Mode A - this subtask IS the doc fix (README.md serial-log table).",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.1",
+                    "h2.5"
+                  ]
                 }
               ]
             }
@@ -75,8 +85,13 @@
                   "status": "Planned",
                   "story_points": 1,
                   "dependencies": [],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md sections 1-4: the original plan task P1.M7.T2.S1 contract requires date-stamped evidence files under docs/bench/; log formats are APPEND-ONLY and prefix-anchored (jug_filler.ino:1343-1344) so evidence greps anchor on exact prefixes; sessions are USB-powered with the buck disconnected (the log stream only exists in USB sessions).\n2. INPUT: Session definitions A-E and the file-layout convention from bench_evidence_package.md sections 2-3; normative log-line grammar from system_context.md section 2. No prior subtask output.\n3. LOGIC: Create docs/bench/README.md containing: (a) an index table - one row per session (A dry bench, rails, B flow-1, C flow-2, D fault paths, E watchdog) with columns for date, evidence filename, firmware git rev, per-checklist pass/fail summary, and a status field that supports BLOCKED-with-reason; (b) the capture procedure section: USB-powered rule, 115200 baud, save-to-file, and the operator header block every evidence file starts with (date, firmware build/git rev, wiring notes, deviations); (c) the integrity rule stated verbatim: evidence logs must be genuine captures; if the rig is unavailable record BLOCKED with reason - never fabricate log contents.\n4. OUTPUT: docs/bench/README.md consumed by P1.M2.T1.S2 (templates must match its conventions) and finalized by P1.M2.T2.S5.\n5. MOCKING: none - static markdown authoring, no hardware needed.\n6. DOCS: Mode A - this subtask creates the doc artifact itself (docs/bench/README.md)."
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md sections 1-4: the original plan task P1.M7.T2.S1 contract requires date-stamped evidence files under docs/bench/; log formats are APPEND-ONLY and prefix-anchored (jug_filler.ino:1343-1344) so evidence greps anchor on exact prefixes; sessions are USB-powered with the buck disconnected (the log stream only exists in USB sessions).\n2. INPUT: Session definitions A-E and the file-layout convention from bench_evidence_package.md sections 2-3; normative log-line grammar from system_context.md section 2. No prior subtask output.\n3. LOGIC: Create docs/bench/README.md containing: (a) an index table - one row per session (A dry bench, rails, B flow-1, C flow-2, D fault paths, E watchdog) with columns for date, evidence filename, firmware git rev, per-checklist pass/fail summary, and a status field that supports BLOCKED-with-reason; (b) the capture procedure section: USB-powered rule, 115200 baud, save-to-file, and the operator header block every evidence file starts with (date, firmware build/git rev, wiring notes, deviations); (c) the integrity rule stated verbatim: evidence logs must be genuine captures; if the rig is unavailable record BLOCKED with reason - never fabricate log contents.\n4. OUTPUT: docs/bench/README.md consumed by P1.M2.T1.S2 (templates must match its conventions) and finalized by P1.M2.T2.S5.\n5. MOCKING: none - static markdown authoring, no hardware needed.\n6. DOCS: Mode A - this subtask creates the doc artifact itself (docs/bench/README.md).",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -84,9 +99,16 @@
                   "title": "Author per-session evidence templates (A-E), rails sheet, and discrepancy list template",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M2.T1.S1"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 enumerates, per session, the ordered expected log-line prefixes and LED observations (Session A dry bench per SPEC section 9.1; B flow-1 abort/restart per section 9.4/6.1; C flow-2 success per section 9.4/7; D fault paths per section 7/4; E watchdog per section 10). Section 1 note: the Stage-2 rail check runs buck-only with USB unplugged, so NO serial stream exists there - evidence is multimeter readings (4.9-5.1 V at buck preset and at board 5 V pin) recorded in markdown.\n2. INPUT: docs/bench/README.md index and naming conventions from P1.M2.T1.S1; expected-prefix lists from bench_evidence_package.md section 2; exact prefix strings from system_context.md section 2 (e.g. 'FILL start backstop=', 'BASE ok s1=', 'VALVE open budget=', 'TRIP sensor=', 'CONFIRM pass sensor=', 'DONE attemptms=', 'ABORT attemptms=', 'FAULT baseline sensor=', 'FAULT confirm sensor=', 'VALVE close', 'ACK done', 'JugFiller boot (reset cause: ').\n3. LOGIC: Author the template set per bench_evidence_package.md section 3: one evidence template per session (A-E) whose body is the ordered expected-prefix checklist with pass/fail checkboxes plus the LED-observation lines and critical assertions (Session B restart must NOT show recovery=0ms; Session D baseline fault must show NO 'VALVE open' before 'FAULT baseline'); a rails template with the two multimeter reading fields and source-exclusivity ticks; a discrepancies template (expected-vs-observed, log excerpt, follow-up issue number). Prefixes must be copy-exact so greps anchor.\n4. OUTPUT: the docs/bench/ template set, consumed verbatim by P1.M2.T2.S1 through P1.M2.T2.S5 as their evidence formats.\n5. MOCKING: none - static markdown authoring.\n6. DOCS: Mode A - the templates are the doc artifacts themselves."
+                  "dependencies": [
+                    "P1.M2.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 enumerates, per session, the ordered expected log-line prefixes and LED observations (Session A dry bench per SPEC section 9.1; B flow-1 abort/restart per section 9.4/6.1; C flow-2 success per section 9.4/7; D fault paths per section 7/4; E watchdog per section 10). Section 1 note: the Stage-2 rail check runs buck-only with USB unplugged, so NO serial stream exists there - evidence is multimeter readings (4.9-5.1 V at buck preset and at board 5 V pin) recorded in markdown.\n2. INPUT: docs/bench/README.md index and naming conventions from P1.M2.T1.S1; expected-prefix lists from bench_evidence_package.md section 2; exact prefix strings from system_context.md section 2 (e.g. 'FILL start backstop=', 'BASE ok s1=', 'VALVE open budget=', 'TRIP sensor=', 'CONFIRM pass sensor=', 'DONE attemptms=', 'ABORT attemptms=', 'FAULT baseline sensor=', 'FAULT confirm sensor=', 'VALVE close', 'ACK done', 'JugFiller boot (reset cause: ').\n3. LOGIC: Author the template set per bench_evidence_package.md section 3: one evidence template per session (A-E) whose body is the ordered expected-prefix checklist with pass/fail checkboxes plus the LED-observation lines and critical assertions (Session B restart must NOT show recovery=0ms; Session D baseline fault must show NO 'VALVE open' before 'FAULT baseline'); a rails template with the two multimeter reading fields and source-exclusivity ticks; a discrepancies template (expected-vs-observed, log excerpt, follow-up issue number). Prefixes must be copy-exact so greps anchor.\n4. OUTPUT: the docs/bench/ template set, consumed verbatim by P1.M2.T2.S1 through P1.M2.T2.S5 as their evidence formats.\n5. MOCKING: none - static markdown authoring.\n6. DOCS: Mode A - the templates are the doc artifacts themselves.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.5"
+                  ]
                 }
               ]
             },
@@ -103,9 +125,17 @@
                   "title": "Session A dry bench check and Stage-2 power-rail measurement with evidence capture",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M2.T1.S2"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 1 (BINDING power safety: RP2040-Zero VSYS ties directly to USB VBUS with no diode - never USB and buck together; 12 V may feed the MOSFET module alone; dry-fire clicks < 5 s each; rail check is buck-only with USB unplugged so its evidence is multimeter readings, not serial) and section 2 Session A checklist (boot banner POWER_OR_RESET, LED off in IDLE, 1 Hz 'S1= S2=' streaming not pinned at 0/4095, BTN short/long on release, dry-fire x2-3 with ordered prefixes FILL start -> BASE ok -> VALVE open -> VALVE close -> ABORT, LED solid during FILLING).\n2. INPUT: docs/bench/ templates from P1.M2.T1.S2; firmware already flashed from the repo (pico env builds clean; no reflash needed for this session).\n3. LOGIC: With the rig: (a) buck-only rail check per Stage 2 - preset buck with board disconnected (4.9-5.1 V), then buck at board 5 V pin (4.9-5.1 V), recorded in the rails markdown sheet; (b) reconfigure USB-only (buck disconnected), run Session A per its template, capture the 115200 stream to the date-stamped session-A log with operator header, tick each prefix/LED checklist item, note valve clicks heard Y/N. If the rig is unavailable, mark the session BLOCKED with reason in the index - never fabricate log contents.\n4. OUTPUT: docs/bench/<date>_session-A-dry-bench.log and <date>_rails.md evidence files plus index rows; proves the rig operational (banner, BTN, dry-fire) for P1.M2.T2.S2.\n5. MOCKING: none possible - physical task; isolation is via the power rules (exactly one source at a time), which are binding safety constraints, not options.\n6. DOCS: Mode A - evidence artifacts under docs/bench/ with date-stamped filenames plus the index update; spec/SPEC.md remains the source of truth and is not edited."
+                  "dependencies": [
+                    "P1.M2.T1.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 1 (BINDING power safety: RP2040-Zero VSYS ties directly to USB VBUS with no diode - never USB and buck together; 12 V may feed the MOSFET module alone; dry-fire clicks < 5 s each; rail check is buck-only with USB unplugged so its evidence is multimeter readings, not serial) and section 2 Session A checklist (boot banner POWER_OR_RESET, LED off in IDLE, 1 Hz 'S1= S2=' streaming not pinned at 0/4095, BTN short/long on release, dry-fire x2-3 with ordered prefixes FILL start -> BASE ok -> VALVE open -> VALVE close -> ABORT, LED solid during FILLING).\n2. INPUT: docs/bench/ templates from P1.M2.T1.S2; firmware already flashed from the repo (pico env builds clean; no reflash needed for this session).\n3. LOGIC: With the rig: (a) buck-only rail check per Stage 2 - preset buck with board disconnected (4.9-5.1 V), then buck at board 5 V pin (4.9-5.1 V), recorded in the rails markdown sheet; (b) reconfigure USB-only (buck disconnected), run Session A per its template, capture the 115200 stream to the date-stamped session-A log with operator header, tick each prefix/LED checklist item, note valve clicks heard Y/N. If the rig is unavailable, mark the session BLOCKED with reason in the index - never fabricate log contents.\n4. OUTPUT: docs/bench/<date>_session-A-dry-bench.log and <date>_rails.md evidence files plus index rows; proves the rig operational (banner, BTN, dry-fire) for P1.M2.T2.S2.\n5. MOCKING: none possible - physical task; isolation is via the power rules (exactly one source at a time), which are binding safety constraints, not options.\n6. DOCS: Mode A - evidence artifacts under docs/bench/ with date-stamped filenames plus the index update; spec/SPEC.md remains the source of truth and is not edited.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -113,9 +143,17 @@
                   "title": "Sessions B and C: Flow 1 (abort + recomputed restart) and Flow 2 (successful fill) with evidence capture",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M2.T2.S1"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 Sessions B and C: Flow 1 fresh boot must show 'FILL start backstop=30min recovery=0ms recmin=0', mid-fill short press yields 'VALVE close' -> 'ABORT attemptms= openms=', and the restart line MUST NOT be recovery=0ms - it comes from the backstop table (44 min at small recovery per the shipped config), not FRESH_BOOT_BACKSTOP_MIN (SPEC 6.1/6.2). Flow 2 requires >= 60 s of valve-open before the first dip (early-trip guard), dip sensor 1 only ('VALVE close' -> 'TRIP sensor=1 fillms='), dip sensor 2 within the 12 s confirm window ('CONFIRM pass sensor=2 durms=' -> 'DONE attemptms= openms='), green LED triple-pulse (3x200 ms on/200 ms off, 1000 ms pause), then short press 'ACK done' and the next press starts a new fill. Hand-dip sensors in a cup; USB-powered session per the power rules.\n2. INPUT: operational rig proven by P1.M2.T2.S1 (banner/BTN/dry-fire pass); session-B/C templates from P1.M2.T1.S2.\n3. LOGIC: Execute both sessions per their templates on USB-only power, hand-dipping sensors; capture each session's stream to its date-stamped log; tick the ordered-prefix checklists; explicitly verify the Flow-1 restart line shows recovery != 0ms and a table-derived budget, and that Flow 2 closes the cycle (post-ACK press starts a new fill). Record any mismatch as a discrepancy entry rather than editing evidence.\n4. OUTPUT: docs/bench/<date>_session-B-flow1-abort.log and <date>_session-C-flow2-success.log plus index rows; consumed by P1.M2.T2.S3 (fault paths reuse the wet-sensor technique) and P1.M2.T2.S5 (consolidation).\n5. MOCKING: none possible - physical task; sensors hand-dipped, valve dry-fired (no water through the valve; keep opens < 5 s where the flow requires aborting).\n6. DOCS: Mode A - evidence artifacts plus index update."
+                  "dependencies": [
+                    "P1.M2.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 Sessions B and C: Flow 1 fresh boot must show 'FILL start backstop=30min recovery=0ms recmin=0', mid-fill short press yields 'VALVE close' -> 'ABORT attemptms= openms=', and the restart line MUST NOT be recovery=0ms - it comes from the backstop table (44 min at small recovery per the shipped config), not FRESH_BOOT_BACKSTOP_MIN (SPEC 6.1/6.2). Flow 2 requires >= 60 s of valve-open before the first dip (early-trip guard), dip sensor 1 only ('VALVE close' -> 'TRIP sensor=1 fillms='), dip sensor 2 within the 12 s confirm window ('CONFIRM pass sensor=2 durms=' -> 'DONE attemptms= openms='), green LED triple-pulse (3x200 ms on/200 ms off, 1000 ms pause), then short press 'ACK done' and the next press starts a new fill. Hand-dip sensors in a cup; USB-powered session per the power rules.\n2. INPUT: operational rig proven by P1.M2.T2.S1 (banner/BTN/dry-fire pass); session-B/C templates from P1.M2.T1.S2.\n3. LOGIC: Execute both sessions per their templates on USB-only power, hand-dipping sensors; capture each session's stream to its date-stamped log; tick the ordered-prefix checklists; explicitly verify the Flow-1 restart line shows recovery != 0ms and a table-derived budget, and that Flow 2 closes the cycle (post-ACK press starts a new fill). Record any mismatch as a discrepancy entry rather than editing evidence.\n4. OUTPUT: docs/bench/<date>_session-B-flow1-abort.log and <date>_session-C-flow2-success.log plus index rows; consumed by P1.M2.T2.S3 (fault paths reuse the wet-sensor technique) and P1.M2.T2.S5 (consolidation).\n5. MOCKING: none possible - physical task; sensors hand-dipped, valve dry-fired (no water through the valve; keep opens < 5 s where the flow requires aborting).\n6. DOCS: Mode A - evidence artifacts plus index update.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -123,9 +161,17 @@
                   "title": "Session D fault paths: baseline fault, no-confirm fault, optional guard faults, with blink-code verification",
                   "status": "Planned",
                   "story_points": 2,
-                  "dependencies": ["P1.M2.T2.S2"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 Session D (SPEC 7/4): fault LED = red blink groups of N (250 ms on/250 ms off, 2000 ms pause), latching until RESET. Baseline fault: start with a wet sensor tip -> 'VALVE close' -> 'FAULT baseline sensor=N code=N count=' with the CRITICAL assertion that NO 'VALVE open' line precedes the fault (the plausibility gate refuses to open). No-confirm fault: trip sensor 1 after >= 60 s open, never dip sensor 2 -> after the 12 s window 'FAULT confirm sensor=2 code=2 durms=' with 2-blink groups. Optional guards: 'FAULT earlywet/earlytrip sensor=N code=N fillms='. Backstop expiry ('FAULT backstop code=3 budget= openms=ms') only if time permits - a recorded skip with reason is acceptable.\n2. INPUT: rig operational with flows verified by P1.M2.T2.S2; session-D template from P1.M2.T1.S2.\n3. LOGIC: Execute the fault-path session on USB-only power: wet-sensor start (verify gate + blink code + latch, RESET clears to a fresh boot banner), then the no-confirm path, then optional guards as time permits; capture the stream; check off each expected prefix, blink cadence, and the no-valve-open assertion. RESET between latched faults as the template directs. Any observed-vs-expected mismatch goes to the discrepancy entries.\n4. OUTPUT: docs/bench/<date>_session-D-fault-paths.log plus index row and any discrepancy entries; consumed by P1.M2.T2.S5.\n5. MOCKING: none possible - physical task; faults induced by hand-dipping sensors (wet start) and withholding the second dip.\n6. DOCS: Mode A - evidence artifacts plus index update."
+                  "dependencies": [
+                    "P1.M2.T2.S2"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md section 2 Session D (SPEC 7/4): fault LED = red blink groups of N (250 ms on/250 ms off, 2000 ms pause), latching until RESET. Baseline fault: start with a wet sensor tip -> 'VALVE close' -> 'FAULT baseline sensor=N code=N count=' with the CRITICAL assertion that NO 'VALVE open' line precedes the fault (the plausibility gate refuses to open). No-confirm fault: trip sensor 1 after >= 60 s open, never dip sensor 2 -> after the 12 s window 'FAULT confirm sensor=2 code=2 durms=' with 2-blink groups. Optional guards: 'FAULT earlywet/earlytrip sensor=N code=N fillms='. Backstop expiry ('FAULT backstop code=3 budget= openms=ms') only if time permits - a recorded skip with reason is acceptable.\n2. INPUT: rig operational with flows verified by P1.M2.T2.S2; session-D template from P1.M2.T1.S2.\n3. LOGIC: Execute the fault-path session on USB-only power: wet-sensor start (verify gate + blink code + latch, RESET clears to a fresh boot banner), then the no-confirm path, then optional guards as time permits; capture the stream; check off each expected prefix, blink cadence, and the no-valve-open assertion. RESET between latched faults as the template directs. Any observed-vs-expected mismatch goes to the discrepancy entries.\n4. OUTPUT: docs/bench/<date>_session-D-fault-paths.log plus index row and any discrepancy entries; consumed by P1.M2.T2.S5.\n5. MOCKING: none possible - physical task; faults induced by hand-dipping sensors (wet start) and withholding the second dip.\n6. DOCS: Mode A - evidence artifacts plus index update.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -133,9 +179,17 @@
                   "title": "Session E optional watchdog-reset check via temporary never-committed hang patch (or recorded skip)",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M2.T2.S3"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md sections 2-E and 5 (scout-verified): config.h contains zero #define/#if (constexpr only) and no UNIT_TEST-adjacent symbol exists anywhere in firmware/, test/, or platformio.ini - so the deliberate hang must be ADDED temporarily, e.g. a local '#if BENCH_HANG_TEST ... while(true){} ... #endif' placed inside loop() AFTER the watchdog feed point, flashed, run, then REVERTED; never committed. Watchdog: WATCHDOG_TIMEOUT_S = 8, fed every loop pass; success evidence is the boot banner 'JugFiller boot (reset cause: WATCHDOG)' (jug_filler.ino:85-87, 1657) plus valve-closed/LED-off/no-auto-restart after reset.\n2. INPUT: rig operational with all prior sessions green (P1.M2.T2.S1-S3); session-E template from P1.M2.T1.S2.\n3. LOGIC: USB-only power: apply the temporary hang patch locally, build+flash, start a fill, observe the ~8 s reset with the WATCHDOG banner and valve-closed behavior, capture the stream to the date-stamped session-E log, then REVERT the patch and confirm 'git status' shows no firmware diff; the evidence file records that the patch was reverted. This check is OPTIONAL per the original contract - a documented skip (with reason, e.g. policy against temporary firmware patches) recorded in the index is an acceptable outcome; never fabricate the capture.\n4. OUTPUT: docs/bench/<date>_session-E-watchdog.log or a recorded skip entry, plus a clean firmware tree (patch reverted) - verified before P1.M2.T2.S5 consolidates.\n5. MOCKING: none possible - physical task; the temporary patch is the isolation mechanism itself (it exists only on the bench flash, never in the committed tree).\n6. DOCS: Mode A - evidence artifact plus index update; the temporary define is documented in the evidence file, not in config.h (config.h stays untouched).\n"
+                  "dependencies": [
+                    "P1.M2.T2.S3"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md sections 2-E and 5 (scout-verified): config.h contains zero #define/#if (constexpr only) and no UNIT_TEST-adjacent symbol exists anywhere in firmware/, test/, or platformio.ini - so the deliberate hang must be ADDED temporarily, e.g. a local '#if BENCH_HANG_TEST ... while(true){} ... #endif' placed inside loop() AFTER the watchdog feed point, flashed, run, then REVERTED; never committed. Watchdog: WATCHDOG_TIMEOUT_S = 8, fed every loop pass; success evidence is the boot banner 'JugFiller boot (reset cause: WATCHDOG)' (jug_filler.ino:85-87, 1657) plus valve-closed/LED-off/no-auto-restart after reset.\n2. INPUT: rig operational with all prior sessions green (P1.M2.T2.S1-S3); session-E template from P1.M2.T1.S2.\n3. LOGIC: USB-only power: apply the temporary hang patch locally, build+flash, start a fill, observe the ~8 s reset with the WATCHDOG banner and valve-closed behavior, capture the stream to the date-stamped session-E log, then REVERT the patch and confirm 'git status' shows no firmware diff; the evidence file records that the patch was reverted. This check is OPTIONAL per the original contract - a documented skip (with reason, e.g. policy against temporary firmware patches) recorded in the index is an acceptable outcome; never fabricate the capture.\n4. OUTPUT: docs/bench/<date>_session-E-watchdog.log or a recorded skip entry, plus a clean firmware tree (patch reverted) - verified before P1.M2.T2.S5 consolidates.\n5. MOCKING: none possible - physical task; the temporary patch is the isolation mechanism itself (it exists only on the bench flash, never in the committed tree).\n6. DOCS: Mode A - evidence artifact plus index update; the temporary define is documented in the evidence file, not in config.h (config.h stays untouched).\n",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -143,9 +197,17 @@
                   "title": "Consolidate the discrepancy list and finalize the bench evidence index",
                   "status": "Planned",
                   "story_points": 1,
-                  "dependencies": ["P1.M2.T2.S4"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md sections 3 and 6: the discrepancy list is its own date-stamped file (expected-vs-observed, log excerpt, follow-up issue number each) feeding fixes before any further phase; one known doc nuance may belong there - COMMISSIONING.md describes an external GP14 green LED mirroring patterns while SPEC section 4 calls the WS2812 the sole indicator (firmware drives both, original plan P1.M5.T2/T3) - record it as observed, do NOT edit spec/SPEC.md.\n2. INPUT: all session evidence and index rows from P1.M2.T2.S1 through P1.M2.T2.S4; discrepancy entries collected during those sessions.\n3. LOGIC: Consolidate every expected-vs-observed mismatch into docs/bench/<date>-discrepancies.md (each with a log excerpt and a proposed follow-up issue); finalize docs/bench/README.md - every session dated, firmware git rev recorded, final status per checklist item including any BLOCKED/skip entries; confirm the repo contains no leftover watchdog patch (git status clean for firmware/).\n4. OUTPUT: the finalized bench evidence package (index + discrepancy list) - this is the deliverable BUG-003 asks for and the input P1.M2.T3.S2 cross-references from the COMMISSIONING.md completion sign-off.\n5. MOCKING: none - documentation consolidation of captured evidence.\n6. DOCS: Mode A - the index and discrepancy files are the doc artifacts."
+                  "dependencies": [
+                    "P1.M2.T2.S4"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: bench_evidence_package.md sections 3 and 6: the discrepancy list is its own date-stamped file (expected-vs-observed, log excerpt, follow-up issue number each) feeding fixes before any further phase; one known doc nuance may belong there - COMMISSIONING.md describes an external GP14 green LED mirroring patterns while SPEC section 4 calls the WS2812 the sole indicator (firmware drives both, original plan P1.M5.T2/T3) - record it as observed, do NOT edit spec/SPEC.md.\n2. INPUT: all session evidence and index rows from P1.M2.T2.S1 through P1.M2.T2.S4; discrepancy entries collected during those sessions.\n3. LOGIC: Consolidate every expected-vs-observed mismatch into docs/bench/<date>-discrepancies.md (each with a log excerpt and a proposed follow-up issue); finalize docs/bench/README.md - every session dated, firmware git rev recorded, final status per checklist item including any BLOCKED/skip entries; confirm the repo contains no leftover watchdog patch (git status clean for firmware/).\n4. OUTPUT: the finalized bench evidence package (index + discrepancy list) - this is the deliverable BUG-003 asks for and the input P1.M2.T3.S2 cross-references from the COMMISSIONING.md completion sign-off.\n5. MOCKING: none - documentation consolidation of captured evidence.\n6. DOCS: Mode A - the index and discrepancy files are the doc artifacts.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 }
               ]
             },
@@ -162,9 +224,27 @@
                   "title": "README.md changeset-level sweep: serial-log consistency and bench-evidence surfacing",
                   "status": "Planned",
                   "story_points": 0.5,
-                  "dependencies": ["P1.M1.T1.S1", "P1.M1.T2.S1", "P1.M2.T1.S1", "P1.M2.T1.S2", "P1.M2.T2.S1", "P1.M2.T2.S2", "P1.M2.T2.S3", "P1.M2.T2.S4", "P1.M2.T2.S5"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.0", "h3.1", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: system_context.md section 6 defines the two mechanical recipes (recmin = floor(recovery_ms/60000) on every 'recmin=' occurrence; BTN short < 1000 ms, BTN long >= 1000 ms). README.md layout: repo-layout section at lines 7-14, 'Serial logging' table at lines 41-78, 'Safety note' at line 79.\n2. INPUT: the fixed README.md from P1.M1.T2.S1 and the finalized bench evidence package from P1.M2.T2.S5 (index at docs/bench/README.md).\n3. LOGIC: Re-run both recipes over README.md (they must pass - if not, fix the residual, that is this subtask's purpose); then apply only changeset-level touches: add docs/bench/ (bench validation evidence) to the repo-layout section so the new deliverable is discoverable, and leave the serial-log table otherwise as fixed by P1.M1.T2.S1. Do not restate session detail in README - link/point to docs/bench/.\n4. OUTPUT: changeset-coherent README.md; final state for the repository's front page.\n5. MOCKING: none - documentation sweep.\n6. DOCS: Mode B - this IS the changeset-level documentation task for README.md."
+                  "dependencies": [
+                    "P1.M1.T1.S1",
+                    "P1.M1.T2.S1",
+                    "P1.M2.T1.S1",
+                    "P1.M2.T1.S2",
+                    "P1.M2.T2.S1",
+                    "P1.M2.T2.S2",
+                    "P1.M2.T2.S3",
+                    "P1.M2.T2.S4",
+                    "P1.M2.T2.S5"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: system_context.md section 6 defines the two mechanical recipes (recmin = floor(recovery_ms/60000) on every 'recmin=' occurrence; BTN short < 1000 ms, BTN long >= 1000 ms). README.md layout: repo-layout section at lines 7-14, 'Serial logging' table at lines 41-78, 'Safety note' at line 79.\n2. INPUT: the fixed README.md from P1.M1.T2.S1 and the finalized bench evidence package from P1.M2.T2.S5 (index at docs/bench/README.md).\n3. LOGIC: Re-run both recipes over README.md (they must pass - if not, fix the residual, that is this subtask's purpose); then apply only changeset-level touches: add docs/bench/ (bench validation evidence) to the repo-layout section so the new deliverable is discoverable, and leave the serial-log table otherwise as fixed by P1.M1.T2.S1. Do not restate session detail in README - link/point to docs/bench/.\n4. OUTPUT: changeset-coherent README.md; final state for the repository's front page.\n5. MOCKING: none - documentation sweep.\n6. DOCS: Mode B - this IS the changeset-level documentation task for README.md.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.0",
+                    "h3.1",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 },
                 {
                   "type": "Subtask",
@@ -172,9 +252,27 @@
                   "title": "docs/COMMISSIONING.md changeset-level sweep and sign-off cross-reference to docs/bench/",
                   "status": "Planned",
                   "story_points": 0.5,
-                  "dependencies": ["P1.M1.T1.S1", "P1.M1.T2.S1", "P1.M2.T1.S1", "P1.M2.T1.S2", "P1.M2.T2.S1", "P1.M2.T2.S2", "P1.M2.T2.S3", "P1.M2.T2.S4", "P1.M2.T2.S5"],
-                  "prd_selectors": ["h2.0", "h2.3", "h3.0", "h3.1", "h3.2", "h2.4", "h2.5"],
-                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: system_context.md section 7: docs/COMMISSIONING.md 'Completion sign-off' table (lines 535+, items 1-14 sourced from Stages 0-5) is the natural anchor for pointing at captured evidence; the calibration runbook's Stage 4 flows (lines 318-420) are what the bench sessions B/C exercised.\n2. INPUT: the corrected COMMISSIONING.md from P1.M1.T1.S1 and the finalized bench evidence package (index + discrepancy list) from P1.M2.T2.S5.\n3. LOGIC: Re-run both mechanical recipes over docs/COMMISSIONING.md (must pass; fix residuals if any); add a short cross-reference so the completion sign-off section points to the captured evidence location docs/bench/ (e.g., a sentence or table note referencing the bench index, covering flows 1/2, fault codes, and the optional watchdog check); make no other content changes.\n4. OUTPUT: changeset-coherent docs/COMMISSIONING.md with the sign-off-to-evidence link; final state of the runbook for this changeset.\n5. MOCKING: none - documentation sweep.\n6. DOCS: Mode B - this IS the changeset-level documentation task for docs/COMMISSIONING.md."
+                  "dependencies": [
+                    "P1.M1.T1.S1",
+                    "P1.M1.T2.S1",
+                    "P1.M2.T1.S1",
+                    "P1.M2.T1.S2",
+                    "P1.M2.T2.S1",
+                    "P1.M2.T2.S2",
+                    "P1.M2.T2.S3",
+                    "P1.M2.T2.S4",
+                    "P1.M2.T2.S5"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: system_context.md section 7: docs/COMMISSIONING.md 'Completion sign-off' table (lines 535+, items 1-14 sourced from Stages 0-5) is the natural anchor for pointing at captured evidence; the calibration runbook's Stage 4 flows (lines 318-420) are what the bench sessions B/C exercised.\n2. INPUT: the corrected COMMISSIONING.md from P1.M1.T1.S1 and the finalized bench evidence package (index + discrepancy list) from P1.M2.T2.S5.\n3. LOGIC: Re-run both mechanical recipes over docs/COMMISSIONING.md (must pass; fix residuals if any); add a short cross-reference so the completion sign-off section points to the captured evidence location docs/bench/ (e.g., a sentence or table note referencing the bench index, covering flows 1/2, fault codes, and the optional watchdog check); make no other content changes.\n4. OUTPUT: changeset-coherent docs/COMMISSIONING.md with the sign-off-to-evidence link; final state of the runbook for this changeset.\n5. MOCKING: none - documentation sweep.\n6. DOCS: Mode B - this IS the changeset-level documentation task for docs/COMMISSIONING.md.",
+                  "prd_selectors": [
+                    "h2.0",
+                    "h2.3",
+                    "h3.0",
+                    "h3.1",
+                    "h3.2",
+                    "h2.4",
+                    "h2.5"
+                  ]
                 }
               ]
             }
