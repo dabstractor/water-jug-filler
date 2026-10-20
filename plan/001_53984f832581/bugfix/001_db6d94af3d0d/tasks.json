@@ -4,14 +4,14 @@
       "type": "Phase",
       "id": "P1",
       "title": "Bug-fix changeset: log-example doc corrections and deferred bench validation evidence",
-      "status": "Researching",
+      "status": "Planned",
       "description": "Close the three minor issues from bug report 001_db6d94af3d0d: (1) two impossible recmin values in docs/COMMISSIONING.md Stage 5a, (2) one impossible 'BTN short 1234ms' example in README.md, (3) the never-executed physical bench validation (original plan P1.M7.T2.S1) with evidence captured under docs/bench/. No firmware behavior changes. Research findings live in plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/ (system_context.md, bench_evidence_package.md).",
       "milestones": [
         {
           "type": "Milestone",
           "id": "P1.M1",
           "title": "Correct impossible log-example values in user-facing docs (BUG-001, BUG-002)",
-          "status": "Researching",
+          "status": "Complete",
           "description": "Make every example serial-log value in docs/COMMISSIONING.md and README.md mechanically consistent with the firmware formatters, so the PRD section 9.5 calibration workflow reads recovery values that can actually appear on the stream. Exactly three wrong values exist repo-wide (scout-verified); nothing else in either doc changes.",
           "tasks": [
             {
@@ -42,14 +42,14 @@
               "type": "Task",
               "id": "P1.M1.T2",
               "title": "Fix README serial-log table BTN example (BUG-002)",
-              "status": "Researching",
+              "status": "Complete",
               "description": "README.md:49 documents the BOOT-press log row with example 'BTN short 1234ms'. A hold >= BUTTON_LONG_PRESS_MS (1000 ms) classifies as long, and the logged hold is the raw edge-to-edge span, so a 1234 ms hold always logs 'BTN long 1234ms' - the printed short example can never occur and contradicts the PRD section 5.1 classification the same row describes.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M1.T2.S1",
                   "title": "Replace 'BTN short 1234ms' with a <1000 ms value in the README serial-log table row",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 0.5,
                   "dependencies": [],
                   "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/system_context.md sections 2 and 4: config.h:28 BUTTON_LONG_PRESS_MS = 1000; ButtonClassifier (jug_filler.ino:150) returns LongPress when holdMs >= 1000; the BTN line is emitted at jug_filler.ino:1685 with the raw edge-to-edge hold. Therefore every logged 'BTN short <n>ms' has n < 1000 and every 'BTN long <n>ms' has n >= 1000. spec/SPEC.md section 5.1 (lines 117-126) is the classification source of truth.\n2. INPUT: README.md as shipped, 'Serial logging' table (lines 41-78); the BTN row is line 49. No code dependency.\n3. LOGIC: In the line-49 row replace `BTN short 1234ms` with a value strictly < 1000 ms (suggested: `BTN short 340ms`); keep `BTN long 1500ms` (valid, 1500 >= 1000). Change nothing else in the row or table. Verify with system_context.md section 6 recipe: grep -n 'BTN short\\|BTN long' README.md docs/COMMISSIONING.md and assert short examples < 1000 and long examples >= 1000 everywhere. Implied TDD: grep fails on 1234 before, passes after.\n4. OUTPUT: corrected README.md serial-log table row, consumed by P1.M2.T3.S1 (changeset-level README sweep) which re-runs the same check.\n5. MOCKING: none - static documentation edit.\n6. DOCS: Mode A - this subtask IS the doc fix (README.md serial-log table).",
@@ -68,7 +68,7 @@
           "type": "Milestone",
           "id": "P1.M2",
           "title": "Bench validation evidence package and changeset-level doc sync (BUG-003)",
-          "status": "Ready",
+          "status": "Planned",
           "description": "Deliver the deferred physical bench validation of PRD section 9 flows and fault paths: software-preparable evidence scaffolding under docs/bench/ first, then execution on the assembled rig (USB-only power), closing with the changeset-level documentation sweep. Full contract in plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md.",
           "tasks": [
             {
@@ -82,7 +82,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T1.S1",
                   "title": "Create docs/bench/README.md index template and capture procedure",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [],
                   "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md sections 1-4: the original plan task P1.M7.T2.S1 contract requires date-stamped evidence files under docs/bench/; log formats are APPEND-ONLY and prefix-anchored (jug_filler.ino:1343-1344) so evidence greps anchor on exact prefixes; sessions are USB-powered with the buck disconnected (the log stream only exists in USB sessions).\n2. INPUT: Session definitions A-E and the file-layout convention from bench_evidence_package.md sections 2-3; normative log-line grammar from system_context.md section 2. No prior subtask output.\n3. LOGIC: Create docs/bench/README.md containing: (a) an index table - one row per session (A dry bench, rails, B flow-1, C flow-2, D fault paths, E watchdog) with columns for date, evidence filename, firmware git rev, per-checklist pass/fail summary, and a status field that supports BLOCKED-with-reason; (b) the capture procedure section: USB-powered rule, 115200 baud, save-to-file, and the operator header block every evidence file starts with (date, firmware build/git rev, wiring notes, deviations); (c) the integrity rule stated verbatim: evidence logs must be genuine captures; if the rig is unavailable record BLOCKED with reason - never fabricate log contents.\n4. OUTPUT: docs/bench/README.md consumed by P1.M2.T1.S2 (templates must match its conventions) and finalized by P1.M2.T2.S5.\n5. MOCKING: none - static markdown authoring, no hardware needed.\n6. DOCS: Mode A - this subtask creates the doc artifact itself (docs/bench/README.md).",

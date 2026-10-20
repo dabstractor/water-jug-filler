@@ -87,7 +87,7 @@ step where you'll see it. Three things worth knowing up front:
 
 - The 1 Hz commissioning line `S1=3487 S2=3512` runs in **every** state — it is
   your live window on both sensors at any time.
-- Button lines print when you **release** the BOOT button (`BTN short 1234ms`,
+- Button lines print when you **release** the BOOT button (`BTN short 340ms`,
   `BTN long 1500ms`; the ms value is the raw hold time, diagnostic only).
 - A fault latches (LED blinks its code until RESET) and always prints
   `VALVE close` first, then the reason line. Codes: `1` sensor 1, `2` sensor 2,

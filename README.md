@@ -46,7 +46,7 @@ unplugged; lines are dropped, never stalled. Newline-terminated lines:
 | Line | Meaning |
 | ---- | ------- |
 | `JugFiller boot (reset cause: WATCHDOG)` / `(… POWER_OR_RESET)` | boot banner; WATCHDOG = the §10 reset path fired |
-| `BTN short 1234ms` / `BTN long 1500ms` | BOOT press, classified on release (hold = raw edge-to-edge, diagnostic) |
+| `BTN short 340ms` / `BTN long 1500ms` | BOOT press, classified on release (hold = raw edge-to-edge, diagnostic) |
 | `S1=3500 S2=3498` | 1 Hz commissioning line — latest averaged pair, 12-bit counts (§9.3); runs in EVERY state, so dip the sensors and read their wet values off this same line |
 | `FILL start backstop=30min recovery=0ms recmin=0` | fill authorized: backstop table minutes + recovery since last fill end (0 = fresh boot) + `recmin` = the table's input, whole minutes of recovery (truncated: 599999ms → 9). `recovery=0ms` ⇒ fresh boot — the table was bypassed and `FRESH_BOOT_BACKSTOP_MIN` granted |
 | `BASE ok s1=3502 s2=3499` | dry baselines accepted (counts) |
