@@ -123,7 +123,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S1",
                   "title": "Session A dry bench check and Stage-2 power-rail measurement with evidence capture",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T1.S2"
@@ -141,7 +141,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S2",
                   "title": "Sessions B and C: Flow 1 (abort + recomputed restart) and Flow 2 (successful fill) with evidence capture",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T2.S1"

@@ -24,7 +24,7 @@ lives in the session's evidence template (P1.M2.T1.S2), summarized here as `pass
 
 | Session | Scope | Date | Evidence file | FW git rev | Checklist | Status |
 |---|---|---|---|---|---|---|
-| A | Dry bench check + Stage-2 rail measurement (SPEC §9.1–9.2, §4) | — | `YYYY-MM-DD_session-A-dry-bench.log` + `YYYY-MM-DD_rails.md` | — | — | PENDING |
+| A | Dry bench check + Stage-2 rail measurement (SPEC §9.1–9.2, §4) | — | `YYYY-MM-DD_session-A-dry-bench.log` + `YYYY-MM-DD_rails.md` | — | — | BLOCKED: rig unavailable — no RP2040-Zero serial device detected on this host (pio device list empty) and no multimeter/physical access for the Phase R buck-rail measurement |
 | B | Flow 1: abort + recomputed restart (SPEC §9.4, §6.1) | — | `YYYY-MM-DD_session-B-flow1-abort.log` | — | — | PENDING |
 | C | Flow 2: successful fill through DONE/ACK (SPEC §9.4, §7) | — | `YYYY-MM-DD_session-C-flow2-success.log` | — | — | PENDING |
 | D | Fault paths: baseline, no-confirm, optional guards (SPEC §7) | — | `YYYY-MM-DD_session-D-fault-paths.log` | — | — | PENDING |
