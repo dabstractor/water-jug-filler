@@ -116,7 +116,7 @@
               "type": "Task",
               "id": "P1.M2.T2",
               "title": "Execute bench sessions on the assembled rig and capture evidence (physical task)",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Run the deferred bench validation per the original P1.M7.T2.S1 contract: dry bench check and power-rail measurement, SPEC section 9.4 flows 1 and 2 with hand-dipped sensors, fault-path blink codes with valve dry-fire, the optional watchdog-reset check, and captured serial logs as evidence under docs/bench/. HARDWARE REQUIRED: this task needs the assembled rig and an operator; the software agent coordinates and records, it cannot simulate captures.",
               "subtasks": [
                 {
@@ -177,7 +177,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S4",
                   "title": "Session E optional watchdog-reset check via temporary never-committed hang patch (or recorded skip)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T2.S3"
@@ -195,7 +195,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S5",
                   "title": "Consolidate the discrepancy list and finalize the bench evidence index",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T2.S4"
