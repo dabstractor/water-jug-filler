@@ -75,7 +75,7 @@
               "type": "Task",
               "id": "P1.M2.T1",
               "title": "docs/bench/ evidence scaffolding: index, capture procedure, per-session templates (software-preparable)",
-              "status": "Researching",
+              "status": "Complete",
               "description": "The docs/bench/ directory does not exist. Create the evidence-package skeleton the bench operator fills in: an index README (sessions, dates, firmware revision, per-checklist pass/fail, BLOCKED-status support), the serial capture procedure, and one template per session type with the expected ordered log-line prefixes as grep-able checklists. This task needs no hardware and unblocks the physical sessions.",
               "subtasks": [
                 {
@@ -97,7 +97,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T1.S2",
                   "title": "Author per-session evidence templates (A-E), rails sheet, and discrepancy list template",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T1.S1"
@@ -123,7 +123,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S1",
                   "title": "Session A dry bench check and Stage-2 power-rail measurement with evidence capture",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T1.S2"
