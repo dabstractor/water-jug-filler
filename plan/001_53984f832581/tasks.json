@@ -452,7 +452,7 @@
                   "type": "Subtask",
                   "id": "P1.M6.T1.S1",
                   "title": "Five-state core: section 5.1 transition table + valve invariant (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T1.S1",
@@ -472,7 +472,7 @@
                   "type": "Subtask",
                   "id": "P1.M6.T1.S2",
                   "title": "Lifecycle orchestration: baseline -> valve -> trip -> CONFIRM -> DONE (pure)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M6.T1.S1",

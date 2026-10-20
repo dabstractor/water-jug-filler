@@ -863,6 +863,128 @@ private:
 };
 // ===== end LED pattern engine (consumed by P1.M5.T2.S1, P1.M5.T3.S1, P1.M6.T1.S2) =====
 
+// ===================== Fill-state transition core (P1.M6.T1.S1) =====================
+// PRD §5.1's BOOT-button table as ONE pure, total, stateless function over
+// the five fill states — plus the §10 valve invariant made structural.
+// This core is the BUTTON half of the fill engine only: sensor/timer-driven
+// transitions (baseline -> valve -> trip -> CONFIRM -> DONE, fault latching)
+// belong to the lifecycle orchestrator (P1.M6.T1.S2 / P1.M6.T1.S3), which
+// OWNS the state variable and calls fillApplyButton() on every classified
+// press. Long/short classification (40 ms debounce, 1000 ms threshold) is
+// entirely upstream in ButtonClassifier (P1.M2.T1.S1) — this table is
+// time-free by construction.
+//
+// Model: STATELESS by design (contrast ButtonClassifier/LedPatternEngine).
+// The caller's FillState variable IS the machine; the function is the pure
+// table (State, Event) -> (State', Outputs). Every §5.1 cell is therefore
+// directly seedable in a test, and P1.M6.T1.S2 drives its lifecycle
+// transitions by the same caller-owned-state pattern without fighting a
+// hidden member. Boot/reset (PRD §5.3, §10) is simply:
+//     FillState st = FillState::Idle;   // the ONLY legal initial value
+// — no path in this core ever re-enters Filling except the human
+// short-press cell below (no auto-open from any source).
+//
+// Outputs are two LEVELS + two EDGES:
+//   valveOpen  LEVEL == (result state == Filling). §10 made structural: the
+//              commanded valve level is high ONLY in FILLING. The PHYSICAL
+//              open instant is still gated by P1.M6.T1.S2's baseline stage
+//              (PRD §7.1/§6: the deadline anchors at valve OPEN, ~2 s settle
+//              after the press) — integrators must NOT wire the pin straight
+//              to this flag at press time.
+//   led        LEVEL == PRD §4 pattern for the result state (Idle Off,
+//              Filling/Confirm Solid — §4 "solid on (continues)", Done
+//              DonePulse, Fault FaultBlink). FaultBlink's group count n
+//              (fault code, PRD §7) is carried by the fault latcher
+//              (P1.M6.T1.S3): no button event ever enters FAULT.
+//   plus5Applied  EDGE: FILLING long-press, one flag per release (PRD §5.1
+//              "+5 min ... stacks; repeatable"). The orchestrator maps it to
+//              FillDeadline::extend5() (P1.M4.T2.S1) + LedPatternEngine::
+//              triggerAck() (PRD §4 ack transient) — this core calls neither.
+//   acknowledged  EDGE: DONE short OR long press (PRD §5.1 "also
+//              acknowledges"). Light-off IS the state change (led -> Off);
+//              the flag exists for the log line.
+// Event::None (the classifier's steady-state return) is a total-function
+// no-op: same state, that state's levels, no edges — callers may route it
+// every pass; both real actions still fire exactly once per classified
+// release upstream (§5.1 "acts on RELEASE").
+
+enum class FillState : uint8_t {
+    Idle    = 0,   // powered, waiting for BOOT press (PRD §4)
+    Filling = 1,   // fill authorized: valve level high, timer running
+    Confirm = 2,   // first sensor tripped, valve closed, confirm window running
+    Done    = 3,   // fill complete: attention pulse until acknowledged
+    Fault   = 4,   // latched fault (blink codes, PRD §7)
+};
+
+struct FillOutputs {
+    bool valveOpen;               // level: commanded valve state (FILLING only)
+    LedPatternEngine::Mode led;   // level: PRD §4 pattern for the result state
+    bool plus5Applied;            // edge: FILLING long-press (+5, stacks)
+    bool acknowledged;            // edge: DONE press (short or long)
+};
+
+// Level half of the outputs as a pure function of a state — the single
+// source of the state -> valve/LED mapping, reused by P1.M6.T1.S2 when its
+// lifecycle transitions (CONFIRM/DONE/FAULT entry) need the same levels.
+FillOutputs fillLevelOutputs(FillState s);
+
+// The §5.1 table. Mutates `state` to the cell's result state and returns
+// that result's outputs (edge flags set only by the acting cells).
+FillOutputs fillApplyButton(FillState& state, ButtonClassifier::Event ev);
+
+FillOutputs fillLevelOutputs(FillState s) {
+    FillOutputs o{};  // zero-init: valveOpen=false is the fail-safe default (PRD §10)
+    switch (s) {
+        case FillState::Filling: o.valveOpen = true; o.led = LedPatternEngine::Mode::Solid; break;
+        case FillState::Confirm: o.led = LedPatternEngine::Mode::Solid; break;      // §4: "solid on (continues)"
+        case FillState::Done:    o.led = LedPatternEngine::Mode::DonePulse; break;
+        case FillState::Fault:   o.led = LedPatternEngine::Mode::FaultBlink; break; // group count: P1.M6.T1.S3
+        case FillState::Idle:    break;                                            // defaults: off, closed
+    }
+    return o;
+}
+
+FillOutputs fillApplyButton(FillState& state, ButtonClassifier::Event ev) {
+    bool plus5 = false;
+    bool ack = false;
+    switch (state) {
+        case FillState::Idle:
+            // Short: START FILL -> FILLING — the ONLY entry into FILLING
+            // anywhere in the button table (PRD §10: human BOOT press).
+            // Long: nothing.
+            if (ev == ButtonClassifier::Event::ShortPress) {
+                state = FillState::Filling;
+            }
+            break;
+        case FillState::Filling:
+            // Short: ABORT — valve level drops with the state change.
+            // Long: +5 to THIS fill's backstop; stays FILLING (valve level
+            // unchanged); stacks because every long release re-fires.
+            if (ev == ButtonClassifier::Event::ShortPress) {
+                state = FillState::Idle;
+            } else if (ev == ButtonClassifier::Event::LongPress) {
+                plus5 = true;
+            }
+            break;
+        case FillState::Confirm:
+            break;  // ignored (both) — PRD §5.1
+        case FillState::Done:
+            // Short: ACKNOWLEDGE -> IDLE. Long: "also acknowledges".
+            if (ev != ButtonClassifier::Event::None) {
+                state = FillState::Idle;
+                ack = true;
+            }
+            break;
+        case FillState::Fault:
+            break;  // ignored (both) — latched until reset (PRD §7)
+    }
+    FillOutputs out = fillLevelOutputs(state);
+    out.plus5Applied = plus5;
+    out.acknowledged = ack;
+    return out;
+}
+// ===== end fill-state transition core (consumed by P1.M6.T1.S2, P1.M6.T2.S1) =====
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 
