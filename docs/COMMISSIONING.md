@@ -551,6 +551,12 @@ recovery. That's commissioning complete.
 | 13 | `BACKSTOP_TABLE_MIN` set (concave) | `{…}` | Stage 5c |
 | 14 | Post-tuning attended fill reaches `DONE` | `Y / N` | Stage 5d |
 
+**Bench evidence:** the hardware validation behind this table — flows 1 and 2
+(items 10–11), the fault blink codes, and the optional watchdog-reset check —
+lives in the bench evidence package at [`docs/bench/`](bench/README.md); see
+its session index and discrepancy ledger for per-session status and captured
+serial-log evidence.
+
 **Closing note:** every commissioned value lives in one place —
 `firmware/jug_filler/config.h` (spec §8, single source of truth). Commit the
 file with your measured values so the rig's calibration survives the next
