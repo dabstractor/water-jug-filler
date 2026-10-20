@@ -159,7 +159,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S3",
                   "title": "Session D fault paths: baseline fault, no-confirm fault, optional guard faults, with blink-code verification",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T2.S2"
@@ -177,7 +177,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S4",
                   "title": "Session E optional watchdog-reset check via temporary never-committed hang patch (or recorded skip)",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T2.S3"
