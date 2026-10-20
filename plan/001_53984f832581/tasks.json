@@ -438,14 +438,14 @@
           "type": "Milestone",
           "id": "P1.M6",
           "title": "Fill lifecycle state machine and fault latching",
-          "status": "Planned",
+          "status": "Ready",
           "description": "The heart of sections 4, 5 and 7: a pure five-state engine orchestrating baseline, valve, trips, confirm window, done and latched faults — then the thin hardware integration loop wiring every service together.",
           "tasks": [
             {
               "type": "Task",
               "id": "P1.M6.T1",
               "title": "Pure fill engine",
-              "status": "Ready",
+              "status": "Complete",
               "description": "State transition table, lifecycle orchestration and fault latching as one natively-testable engine.",
               "subtasks": [
                 {
@@ -496,7 +496,7 @@
                   "type": "Subtask",
                   "id": "P1.M6.T1.S3",
                   "title": "Fault latching and blink codes 1/2/3 (pure)",
-                  "status": "Ready",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M6.T1.S2"
@@ -515,14 +515,14 @@
               "type": "Task",
               "id": "P1.M6.T2",
               "title": "Hardware integration loop",
-              "status": "Planned",
+              "status": "Ready",
               "description": "The thin ARDUINO-region glue: setup() safety ordering and one non-blocking loop() wiring button, ADC, engine, valve, LEDs and logging.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M6.T2.S1",
                   "title": "setup()/loop() wiring: services -> FillEngine -> valve/LED/log, zero delay()",
-                  "status": "Planned",
+                  "status": "Ready",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M6.T1.S3",
@@ -557,14 +557,14 @@
               "type": "Task",
               "id": "P1.M7.T1",
               "title": "Safety invariant verification suite",
-              "status": "Planned",
+              "status": "Researching",
               "description": "Native property/fuzz tests plus structural checks for every section 10 invariant.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M7.T1.S1",
                   "title": "Property tests: no auto-open, valve LOW first, close-on-every-exit",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M6.T2.S1"
