@@ -4,7 +4,7 @@
       "type": "Phase",
       "id": "P1",
       "title": "Bug-fix changeset: log-example doc corrections and deferred bench validation evidence",
-      "status": "Researching",
+      "status": "Ready",
       "description": "Close the three minor issues from bug report 001_db6d94af3d0d: (1) two impossible recmin values in docs/COMMISSIONING.md Stage 5a, (2) one impossible 'BTN short 1234ms' example in README.md, (3) the never-executed physical bench validation (original plan P1.M7.T2.S1) with evidence captured under docs/bench/. No firmware behavior changes. Research findings live in plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/ (system_context.md, bench_evidence_package.md).",
       "milestones": [
         {
@@ -68,7 +68,7 @@
           "type": "Milestone",
           "id": "P1.M2",
           "title": "Bench validation evidence package and changeset-level doc sync (BUG-003)",
-          "status": "Researching",
+          "status": "Ready",
           "description": "Deliver the deferred physical bench validation of PRD section 9 flows and fault paths: software-preparable evidence scaffolding under docs/bench/ first, then execution on the assembled rig (USB-only power), closing with the changeset-level documentation sweep. Full contract in plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md.",
           "tasks": [
             {
@@ -215,14 +215,14 @@
               "type": "Task",
               "id": "P1.M2.T3",
               "title": "Sync changeset-level documentation",
-              "status": "Researching",
+              "status": "Ready",
               "description": "Final catch-all sweep so the whole bugfix changeset ships with coherent top-level docs: re-run the mechanical consistency recipes across README.md and docs/COMMISSIONING.md, surface the docs/bench/ evidence directory at changeset level, and cross-reference the captured bench evidence from the COMMISSIONING.md completion sign-off table.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T3.S1",
                   "title": "README.md changeset-level sweep: serial-log consistency and bench-evidence surfacing",
-                  "status": "Ready",
+                  "status": "Complete",
                   "story_points": 0.5,
                   "dependencies": [
                     "P1.M1.T1.S1",
@@ -250,7 +250,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T3.S2",
                   "title": "docs/COMMISSIONING.md changeset-level sweep and sign-off cross-reference to docs/bench/",
-                  "status": "Researching",
+                  "status": "Ready",
                   "story_points": 0.5,
                   "dependencies": [
                     "P1.M1.T1.S1",

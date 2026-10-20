@@ -10,6 +10,7 @@ All tunables live in [`firmware/jug_filler/config.h`](firmware/jug_filler/config
 firmware/jug_filler/   Arduino sketch (jug_filler.ino + config.h) — the only firmware files
 test/                  Native host unit tests (Unity), run without any hardware
 platformio.ini         PlatformIO build (board) + host-test (native) configuration
+docs/bench/            Bench validation evidence — index, capture procedure, discrepancy ledger
 ```
 
 ## Build in Arduino IDE
@@ -74,7 +75,8 @@ these lines — set `BASELINE_MIN`/`MAX` from the dry/wet `S1=/S2=` values
 `DONE attemptms=`/`openms=` (§9.5). §9.2 power-rail voltages are NOT on the
 log stream: the USB cable is unplugged on bench power, so CDC is absent —
 record rails with a multimeter (bench records from the commissioning
-session).
+session). Captured bench validation evidence (session index, discrepancy
+ledger): [`docs/bench/`](docs/bench/README.md).
 
 ## Safety note
 
