@@ -47,8 +47,8 @@ unplugged; lines are dropped, never stalled. Newline-terminated lines:
 | ---- | ------- |
 | `JugFiller boot (reset cause: WATCHDOG)` / `(… POWER_OR_RESET)` | boot banner; WATCHDOG = the §10 reset path fired |
 | `BTN short 1234ms` / `BTN long 1500ms` | BOOT press, classified on release (hold = raw edge-to-edge, diagnostic) |
-| `S1=3500 S2=3498` | 1 Hz commissioning line — latest averaged pair, 12-bit counts (§9.3) |
-| `FILL start backstop=30min recovery=0ms` | fill authorized: backstop table minutes + recovery since last fill end (0 = fresh boot) |
+| `S1=3500 S2=3498` | 1 Hz commissioning line — latest averaged pair, 12-bit counts (§9.3); runs in EVERY state, so dip the sensors and read their wet values off this same line |
+| `FILL start backstop=30min recovery=0ms recmin=0` | fill authorized: backstop table minutes + recovery since last fill end (0 = fresh boot) + `recmin` = the table's input, whole minutes of recovery (truncated: 599999ms → 9). `recovery=0ms` ⇒ fresh boot — the table was bypassed and `FRESH_BOOT_BACKSTOP_MIN` granted |
 | `BASE ok s1=3502 s2=3499` | dry baselines accepted (counts) |
 | `VALVE open budget=30min` | valve opened; deadline budget incl. any stacked +5s |
 | `TRIP sensor=1 fillms=75000` | first sensor trip; valve-open time |
@@ -57,17 +57,25 @@ unplugged; lines are dropped, never stalled. Newline-terminated lines:
 | `ACK done` | DONE acknowledged → IDLE |
 | `PLUS5 budget=35min` | +5 min long-press extension (stacks) |
 | `VALVE close` | valve closed — any fill end; always precedes the reason line |
-| `ABORT attemptms=5000` | fill aborted by short press |
-| `FAULT baseline sensor=1 code=1` | baseline out of range (§7.1) |
-| `FAULT earlywet sensor=2 code=2` | wet reading inside the 5 s early window (§7.6) |
-| `FAULT earlytrip sensor=1 code=1` | trip before 60 s elapsed (§7.6) |
-| `FAULT confirm sensor=2 code=2` | other sensor never tripped in the 12 s window (§7.5) |
-| `FAULT backstop code=3` | backstop expired, no trip (§7.7) |
+| `ABORT attemptms=5000 openms=0` | fill aborted by short press; `openms` = valve-open time (0 = aborted before the valve opened) |
+| `FAULT baseline sensor=1 code=1 count=3502` | baseline out of range (§7.1); `count` = the failing sensor's observed dry value |
+| `FAULT earlywet sensor=2 code=2 fillms=1200` | wet reading inside the 5 s early window (§7.6); `fillms` = valve-open time at the fault |
+| `FAULT earlytrip sensor=1 code=1 fillms=45000` | trip before 60 s elapsed (§7.6); `fillms` = valve-open time at the fault |
+| `FAULT confirm sensor=2 code=2 durms=12000` | other sensor never tripped in the 12 s window (§7.5); `durms` = confirm window elapsed |
+| `FAULT backstop code=3 budget=30min openms=1800000ms` | backstop expired, no trip (§7.7); `budget` = deadline budget at expiry (incl. +5s), `openms` = valve-open time at expiry |
 | `RGB mirror init FAILED (no PIO SM)` | onboard mirror disabled; external LED unaffected |
 
 Fault codes = LED blink groups (§7): 1 sensor 1, 2 sensor 2, 3 timer. Faults
 latch until RESET. Full commissioning log workflow: `docs/COMMISSIONING.md`
 (planned).
+
+Commissioning notes (PRD §9): every §9 step reads its numbers straight off
+these lines — set `BASELINE_MIN`/`MAX` from the dry/wet `S1=/S2=` values
+(§9.3), set `BACKSTOP_TABLE_MIN` from `recmin` vs the fill duration in
+`DONE attemptms=`/`openms=` (§9.5). §9.2 power-rail voltages are NOT on the
+log stream: the USB cable is unplugged on bench power, so CDC is absent —
+record rails with a multimeter (bench records from the commissioning
+session).
 
 ## Safety note
 

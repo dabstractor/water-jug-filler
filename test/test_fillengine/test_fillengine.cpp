@@ -152,6 +152,7 @@ void test_baseline_fault_s1_refuses_valve() {
     TEST_ASSERT_EQUAL_UINT8(1, s.last.faultCode);
     TEST_ASSERT_TRUE(s.last.logs[0].kind == FillLogEvent::Kind::ValveClosed);
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::BaselineFault);
+    TEST_ASSERT_EQUAL_UINT32(1000, s.last.logs[1].b);  // P2.M1.T1.S1: observed count of the failing sensor
     TEST_ASSERT_TRUE(s.last.led == LedPatternEngine::Mode::FaultBlink);
     s.pass(ButtonClassifier::Event::ShortPress);  // BOOT ignored while faulted (§7)
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Fault);
@@ -167,6 +168,7 @@ void test_baseline_fault_s2_refuses_valve() {
     TEST_ASSERT_EQUAL_UINT8(2, s.eng.faultCode());
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::BaselineFault);
     TEST_ASSERT_EQUAL_UINT8(1, s.last.logs[1].sensor);
+    TEST_ASSERT_EQUAL_UINT32(4200, s.last.logs[1].b);  // P2.M1.T1.S1: observed count of the failing sensor
 }
 
 // ---- happy paths (§7.3–§7.8) ----------------------------------------------
@@ -246,6 +248,8 @@ void test_flow1_abort_in_settle_restarts_recovery() {
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Idle);
     TEST_ASSERT_TRUE(o.logs[0].kind == FillLogEvent::Kind::ValveClosed);  // §7.9, uniform
     TEST_ASSERT_TRUE(o.logs[1].kind == FillLogEvent::Kind::Abort);
+    TEST_ASSERT_EQUAL_UINT32(0, o.logs[1].b);  // P2.M1.T1.S1: settled abort => valve never opened
+    TEST_ASSERT_TRUE(o.logs[1].a > 0);         // attempt ms > 0 (press -> abort)
     s.run(60000);  // 60 s of recovery since the abort
     const FillEngineOutputs& o2 = s.pass(ButtonClassifier::Event::ShortPress);
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Filling);
@@ -262,6 +266,7 @@ void test_flow1_abort_midfill_recomputes() {
     const FillEngineOutputs& o = s.pass(ButtonClassifier::Event::ShortPress);
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Idle);
     TEST_ASSERT_TRUE(o.logs[0].kind == FillLogEvent::Kind::ValveClosed);
+    TEST_ASSERT_EQUAL_UINT32(10025, o.logs[1].b);  // P2.M1.T1.S1: openms at the abort (abort pass lands one 25 ms step after run(10000) — grid-exact)
     s.run(10u * 60000u);
     s.pass(ButtonClassifier::Event::ShortPress);
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Filling);
@@ -308,6 +313,8 @@ void test_confirm_timeout_faults_other_sensor() {
     TEST_ASSERT_TRUE(s.last.logs[0].kind == FillLogEvent::Kind::ValveClosed);
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::ConfirmTimeout);
     TEST_ASSERT_EQUAL_UINT8(1, s.last.logs[1].sensor);
+    TEST_ASSERT_EQUAL_UINT32((uint32_t)CONFIRM_WINDOW_S * 1000u,
+                             s.last.logs[1].b);  // P2.M1.T1.S1: full window elapsed (grid-exact)
 }
 
 // ITEM CASE: wet reading inside EARLY_WET_WINDOW_S -> guard faults that
@@ -320,6 +327,7 @@ void test_early_wet_fault() {
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Fault);
     TEST_ASSERT_EQUAL_UINT8(1, s.eng.faultCode());
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::EarlyWetFault);
+    TEST_ASSERT_EQUAL_UINT32(100, s.last.logs[1].b);  // P2.M1.T1.S1: wet pair routes one grid step (100 ms) after open
     TEST_ASSERT_FALSE(s.last.valveOpen);
 }
 
@@ -332,6 +340,7 @@ void test_early_trip_fault() {
     TEST_ASSERT_TRUE(s.eng.state() == FillState::Fault);
     TEST_ASSERT_EQUAL_UINT8(1, s.eng.faultCode());
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::EarlyTripFault);
+    TEST_ASSERT_EQUAL_UINT32(59800, s.last.logs[1].b);  // P2.M1.T1.S1: fill ms at the false trip
 }
 
 // ITEM CASE: a trip accepted AT EXACTLY 60.000 s is LEGAL -> Confirm.
@@ -352,6 +361,8 @@ void test_backstop_expiry_fault3() {
     TEST_ASSERT_EQUAL_UINT8(3, s.eng.faultCode());
     TEST_ASSERT_TRUE(s.last.logs[0].kind == FillLogEvent::Kind::ValveClosed);
     TEST_ASSERT_TRUE(s.last.logs[1].kind == FillLogEvent::Kind::BackstopExpired);
+    TEST_ASSERT_EQUAL_UINT32(30, s.last.logs[1].a);  // P2.M1.T1.S1: budget minutes (fresh boot, no +5s)
+    TEST_ASSERT_EQUAL_UINT32(30u * 60000u, s.last.logs[1].b);  // open ms at expiry (grid-exact)
     TEST_ASSERT_FALSE(s.last.valveOpen);
 }
 

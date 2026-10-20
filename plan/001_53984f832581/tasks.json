@@ -615,28 +615,28 @@
       "type": "Phase",
       "id": "P2",
       "title": "Commissioning, calibration and changeset documentation",
-      "status": "Planned",
+      "status": "Researching",
       "description": "Make the device field-commissionable per PRD section 9: audit that the serial logs carry everything the calibration procedure needs, write the calibration runbook, and synchronize changeset-level documentation (README and overview) with the completed firmware.",
       "milestones": [
         {
           "type": "Milestone",
           "id": "P2.M1",
           "title": "Calibration support and handoff documentation",
-          "status": "Planned",
+          "status": "Researching",
           "description": "Log coverage audit against section 9, the commissioning runbook, and the final changeset-level documentation sweep.",
           "tasks": [
             {
               "type": "Task",
               "id": "P2.M1.T1",
               "title": "Commissioning logging audit",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Guarantee the serial log alone is sufficient to execute section 9 sensor calibration (9.3) and backstop tuning (9.5).",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P2.M1.T1.S1",
                   "title": "Audit and complete log coverage for section 9 workflow",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M6.T2.S1"
@@ -655,14 +655,14 @@
               "type": "Task",
               "id": "P2.M1.T2",
               "title": "First-fill calibration guide",
-              "status": "Planned",
+              "status": "Ready",
               "description": "The runbook that turns observed logs into tuned config.h constants — concave table discipline included.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P2.M1.T2.S1",
                   "title": "Author docs/COMMISSIONING.md calibration runbook",
-                  "status": "Planned",
+                  "status": "Ready",
                   "story_points": 1,
                   "dependencies": [
                     "P2.M1.T1.S1"
@@ -681,14 +681,14 @@
               "type": "Task",
               "id": "P2.M1.T3",
               "title": "Sync changeset-level documentation",
-              "status": "Planned",
+              "status": "Researching",
               "description": "FINAL changeset-level docs sweep (SOW Mode B): README and overview surfaces reflecting the entire delta, pointing at spec/SPEC.md as the source of truth.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P2.M1.T3.S1",
                   "title": "Update README.md and overview docs for the whole changeset",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T1.S1",

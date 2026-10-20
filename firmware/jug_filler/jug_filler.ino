@@ -32,6 +32,8 @@
 uint32_t elapsedMs(uint32_t now, uint32_t since);      // rollover-safe elapsed ms (P1.M1.T2.S1)
 bool deadlinePassed(uint32_t now, uint32_t deadline);  // rollover-safe deadline check (P1.M1.T2.S1)
 size_t formatBootBanner(char* buf, size_t bufLen, bool watchdogCaused);  // pure banner text (P1.M1.T2.S2)
+struct FillLogEvent;                   // fill-lifecycle log record (defined below)
+size_t formatFillLogEvent(char* buf, size_t bufLen, const FillLogEvent& e);  // pure fill-log line text (P2.M1.T1.S1)
 uint16_t medianOf(uint16_t* values, size_t n);   // median of n counts, sorts in place (P1.M3.T1.S1)
 uint32_t backstopMinutes(uint32_t recoveryMin);  // concave backstop table lookup, floored (P1.M4.T1.S1)
 void logLine(const char* fmt, ...);  // bounded, newline-terminated CDC log line (P1.M1.T2.S2; ARDUINO region only)
@@ -1041,21 +1043,40 @@ constexpr uint8_t FILL_LOG_CAPACITY = 5;
 
 // One ordered engine action. T2.S1 formats ONE logLine per event; the
 // ORDER is normative (logs[0] == ValveClosed on any fill-ending step).
+// Payload contract (P2.M1.T1.S1) — exact normative lines are produced by
+// formatFillLogEvent() and documented in README.md "Serial logging":
+//   FillStart:       a = table minutes (fresh-boot default on fresh boot),
+//                    b = recovery ms at press; formatter derives recmin = b/60000
+//   BaselineOk:      a/b = dry baselines, counts
+//   BaselineFault:   a = fault code (sensor+1); b = FAILING sensor's observed
+//                    baseline count (§9.3: how far out of range, at a glance)
+//   ValveOpen:       a = budget minutes at open (incl. stacked +5s)
+//   Trip:            sensor = first-trip sensor; a = fill ms at trip
+//   ConfirmPass:     a = confirm duration ms
+//   Done:            a = attempt ms (press->valve close); b = valve-open ms
+//   Abort:           a = attempt ms; b = valve-open ms (0 => valve never opened)
+//   EarlyWetFault:   a = fault code (sensor+1); b = fill ms at fault (valve-open span)
+//   EarlyTripFault:  a = fault code (sensor+1); b = fill ms at fault (valve-open span)
+//   BackstopExpired: a = budget minutes (incl. +5 stacks); b = open ms at expiry
+//                    (the fault code is the CONSTANT 3 — printed as a literal)
+//   ConfirmTimeout:  a = fault code (sensor+1); b = confirm-window elapsed ms
+//   Plus5:           a = new total budget minutes
+//   ValveClosed/Ack: no payload
 struct FillLogEvent {
     enum class Kind : uint8_t {
         ValveClosed     = 1,   // fill end, ANY cause — ALWAYS first on its step (§7.9)
         FillStart       = 2,   // a: backstop table minutes; b: recovery ms at press (0 = fresh boot)
         BaselineOk      = 3,   // a/b: dry baselines, counts
-        BaselineFault   = 4,   // sensor: failing; a: fault code (sensor+1)
+        BaselineFault   = 4,   // sensor: failing; a: fault code; b: observed baseline count
         ValveOpen       = 5,   // a: budget minutes at open (incl. pre-open +5s)
         Trip            = 6,   // sensor: first-trip sensor; a: fill time ms
         ConfirmPass     = 7,   // a: confirm duration ms
         Done            = 8,   // a: attempt ms (press->valve close); b: valve-open ms
-        Abort           = 9,   // a: attempt duration ms
-        EarlyWetFault   = 10,  // sensor: shorted/wet-too-early; a: fault code
-        EarlyTripFault  = 11,  // sensor: false trip; a: fault code
-        BackstopExpired = 12,  // a: fault code 3
-        ConfirmTimeout  = 13,  // sensor: never tripped in window; a: fault code
+        Abort           = 9,   // a: attempt ms; b: valve-open ms (0 = never opened)
+        EarlyWetFault   = 10,  // sensor: shorted/wet-too-early; a: fault code; b: fill ms
+        EarlyTripFault  = 11,  // sensor: false trip; a: fault code; b: fill ms
+        BackstopExpired = 12,  // a: budget minutes (incl. +5 stacks); b: open ms (code = 3 literal)
+        ConfirmTimeout  = 13,  // sensor: never tripped in window; a: fault code; b: elapsed ms
         Plus5           = 14,  // a: new total budget minutes
         Ack             = 15,  // DONE acknowledged -> IDLE
     };
@@ -1125,10 +1146,12 @@ public:
 
         // ---- 3. Abort: Filling+ShortPress -> Idle (§5.2 flow 1) -----------
         if (before == FillState::Filling && state_ == FillState::Idle) {
+            const bool wasOpen = valveOpen_;  // Abort's openms (0 ⇒ never opened)
             valveOpen_ = false;  // §7.9: LOW FIRST — uniform, even if never opened
             log(FillLogEvent::Kind::ValveClosed, 0, 0, 0);
             clock_.recordFillEnd(nowMs);  // §6.1: recovery restarts at the abort instant
-            log(FillLogEvent::Kind::Abort, 0, elapsedMs(nowMs, fillStartMs_), 0);
+            log(FillLogEvent::Kind::Abort, 0, elapsedMs(nowMs, fillStartMs_),
+                wasOpen ? elapsedMs(nowMs, valveOpenedAtMs_) : 0);
         }
 
         // ---- 4. Route the reading stream — EXACTLY ONCE per step ----------
@@ -1267,7 +1290,31 @@ private:
                          ? 3                        // "timer, no trip" (§7 table)
                          : (uint8_t)(sensor + 1);   // sensor fault code
         clock_.recordFillEnd(nowMs);
-        log(why, sensor, faultCode_, 0);
+        // Diagnostic payloads (P2.M1.T1.S1): each fault line carries the
+        // observed datum so §9.3/§9.5 run from the log alone. Payload
+        // enrichment ONLY — state, latching, event ordering/count untouched.
+        uint32_t aPayload = faultCode_;  // sensor Kinds keep a = fault code
+        uint32_t bPayload = 0;
+        switch (why) {
+            case FillLogEvent::Kind::BaselineFault:
+                // Runs only after baseline_.done() ⇒ baseline(sensor) valid.
+                bPayload = baseline_.baseline(sensor);  // observed dry count
+                break;
+            case FillLogEvent::Kind::EarlyWetFault:      // valve-open sub-phase only
+            case FillLogEvent::Kind::EarlyTripFault:     // ⇒ valveOpenedAtMs_ valid
+                bPayload = elapsedMs(nowMs, valveOpenedAtMs_);
+                break;
+            case FillLogEvent::Kind::BackstopExpired:    // code printed as literal 3
+                aPayload = deadline_.budgetMinutes();    // incl. any stacked +5s
+                bPayload = elapsedMs(nowMs, valveOpenedAtMs_);
+                break;
+            case FillLogEvent::Kind::ConfirmTimeout:
+                bPayload = elapsedMs(nowMs, confirmStartMs_);
+                break;
+            default:
+                break;  // no other Kind routes through endFillFault
+        }
+        log(why, sensor, aPayload, bPayload);
     }
 
     FillState       state_;            // the §5.1 machine's state (S1 core drives it)
@@ -1288,6 +1335,64 @@ private:
     uint8_t         logCount_;
 };
 // ===== end fill lifecycle engine (consumed by P1.M6.T2.S1, P1.M6.T1.S3, P1.M7.T1.S1) =====
+
+// ===================== fill-log line formatter (P2.M1.T1.S1) =====================
+// Pure text for one FillLogEvent — the exact normative formats documented in
+// README.md "Serial logging". Same shape as formatBootBanner: snprintf only
+// (no Serial, no millis — seam rule), so every final line is native-testable.
+// Formats are APPEND-ONLY: existing fields keep name and position (the P1.M7
+// bench-evidence greps are prefix-anchored). recmin is DERIVED here
+// (b/60000, truncated) — no extra payload, no engine change for FillStart;
+// recovery=0ms ⇒ recmin=0 (fresh boot: the table was bypassed entirely, see
+// FRESH_BOOT_BACKSTOP_MIN). Sensor payloads print 1-based (e.sensor + 1) to
+// match the §7 fault codes. snprintf contract: returns the would-be length;
+// writes <= bufLen-1 chars plus a NUL; bufLen == 0 touches nothing.
+size_t formatFillLogEvent(char* buf, size_t bufLen, const FillLogEvent& e) {
+    switch (e.kind) {
+        case FillLogEvent::Kind::ValveClosed:
+            return (size_t)snprintf(buf, bufLen, "VALVE close");
+        case FillLogEvent::Kind::FillStart:  // a: table min; b: recovery ms (0 = fresh boot)
+            return (size_t)snprintf(buf, bufLen,
+                                    "FILL start backstop=%umin recovery=%lums recmin=%u",
+                                    e.a, e.b, (unsigned)(e.b / 60000u));
+        case FillLogEvent::Kind::BaselineOk:  // a/b: dry baselines, counts
+            return (size_t)snprintf(buf, bufLen, "BASE ok s1=%u s2=%u", e.a, e.b);
+        case FillLogEvent::Kind::BaselineFault:  // b: failing sensor's observed count
+            return (size_t)snprintf(buf, bufLen, "FAULT baseline sensor=%u code=%u count=%lu",
+                                    (unsigned)(e.sensor + 1), e.a, e.b);
+        case FillLogEvent::Kind::ValveOpen:  // a: budget minutes at open (incl. stacked +5s)
+            return (size_t)snprintf(buf, bufLen, "VALVE open budget=%umin", e.a);
+        case FillLogEvent::Kind::Trip:  // a: valve-open ms at first trip
+            return (size_t)snprintf(buf, bufLen, "TRIP sensor=%u fillms=%lu",
+                                    (unsigned)(e.sensor + 1), e.a);
+        case FillLogEvent::Kind::ConfirmPass:  // a: confirm duration ms
+            return (size_t)snprintf(buf, bufLen, "CONFIRM pass sensor=%u durms=%lu",
+                                    (unsigned)(e.sensor + 1), e.a);
+        case FillLogEvent::Kind::Done:  // a: press->close ms; b: valve-open ms
+            return (size_t)snprintf(buf, bufLen, "DONE attemptms=%lu openms=%lu", e.a, e.b);
+        case FillLogEvent::Kind::Abort:  // a: attempt ms; b: open ms (0 ⇒ never opened)
+            return (size_t)snprintf(buf, bufLen, "ABORT attemptms=%lu openms=%lu", e.a, e.b);
+        case FillLogEvent::Kind::EarlyWetFault:  // b: fill ms at fault
+            return (size_t)snprintf(buf, bufLen, "FAULT earlywet sensor=%u code=%u fillms=%lu",
+                                    (unsigned)(e.sensor + 1), e.a, e.b);
+        case FillLogEvent::Kind::EarlyTripFault:  // b: fill ms at fault
+            return (size_t)snprintf(buf, bufLen, "FAULT earlytrip sensor=%u code=%u fillms=%lu",
+                                    (unsigned)(e.sensor + 1), e.a, e.b);
+        case FillLogEvent::Kind::BackstopExpired:  // a: budget min (incl. +5s); b: open ms
+            return (size_t)snprintf(buf, bufLen,
+                                    "FAULT backstop code=3 budget=%umin openms=%lums",
+                                    e.a, e.b);
+        case FillLogEvent::Kind::ConfirmTimeout:  // b: confirm-window elapsed ms
+            return (size_t)snprintf(buf, bufLen, "FAULT confirm sensor=%u code=%u durms=%lu",
+                                    (unsigned)(e.sensor + 1), e.a, e.b);
+        case FillLogEvent::Kind::Plus5:  // a: new total budget minutes
+            return (size_t)snprintf(buf, bufLen, "PLUS5 budget=%umin", e.a);
+        case FillLogEvent::Kind::Ack:
+            return (size_t)snprintf(buf, bufLen, "ACK done");
+    }
+    return 0;  // unreachable defensive return (all Kinds covered)
+}
+// ===== end fill-log line formatter =====
 
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
@@ -1376,43 +1481,15 @@ static uint8_t                s_prevFaultCode = 0;
 
 // ONE logLine per engine event (PRD §3: state transitions + backstop
 // computations; raw sensor counts are the 1 Hz S1=/S2= commissioning line
-// above). Formats are NORMATIVE — documented in README.md "Serial logging".
-// Sensor payloads are 0-based in the engine (0 == sensor 1); printed 1-based
-// to match the §7 fault codes 1/2. %lu with uint32_t payloads is the landed
-// house precedent (cf. the BTN line) — exact on arm-none-eabi.
+// above). The exact formats live in the PURE formatter formatFillLogEvent()
+// (UNGUARDED region, P2.M1.T1.S1) and are native-tested in test/test_logfmt/ —
+// this glue only transmits. Formats are NORMATIVE — documented in README.md
+// "Serial logging". %lu with uint32_t payloads is the landed house precedent
+// (cf. the BTN line) — exact on arm-none-eabi AND host g++.
 static void logFillEvent(const FillLogEvent& e) {
-    switch (e.kind) {
-        case FillLogEvent::Kind::ValveClosed:
-            logLine("VALVE close"); break;
-        case FillLogEvent::Kind::FillStart:   // a: table min; b: recovery ms (0 = fresh boot)
-            logLine("FILL start backstop=%umin recovery=%lums", e.a, e.b); break;
-        case FillLogEvent::Kind::BaselineOk:  // a/b: dry baselines, counts
-            logLine("BASE ok s1=%u s2=%u", e.a, e.b); break;
-        case FillLogEvent::Kind::BaselineFault:
-            logLine("FAULT baseline sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::ValveOpen:   // a: budget minutes at open (incl. stacked +5s)
-            logLine("VALVE open budget=%umin", e.a); break;
-        case FillLogEvent::Kind::Trip:        // a: valve-open ms at first trip
-            logLine("TRIP sensor=%u fillms=%lu", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::ConfirmPass: // a: confirm duration ms
-            logLine("CONFIRM pass sensor=%u durms=%lu", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::Done:        // a: press->close ms; b: valve-open ms
-            logLine("DONE attemptms=%lu openms=%lu", e.a, e.b); break;
-        case FillLogEvent::Kind::Abort:       // a: attempt duration ms
-            logLine("ABORT attemptms=%lu", e.a); break;
-        case FillLogEvent::Kind::EarlyWetFault:
-            logLine("FAULT earlywet sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::EarlyTripFault:
-            logLine("FAULT earlytrip sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::BackstopExpired:
-            logLine("FAULT backstop code=%u", e.a); break;
-        case FillLogEvent::Kind::ConfirmTimeout:
-            logLine("FAULT confirm sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
-        case FillLogEvent::Kind::Plus5:       // a: new total budget minutes
-            logLine("PLUS5 budget=%umin", e.a); break;
-        case FillLogEvent::Kind::Ack:
-            logLine("ACK done"); break;
-    }
+    char buf[96];  // longest final line ~60 chars; snprintf truncates safely
+    formatFillLogEvent(buf, sizeof(buf), e);
+    logLine("%s", buf);
 }
 // ---- end Fill engine routing state (used by loop; feeding P1.M7.T2.S1) ----
 
