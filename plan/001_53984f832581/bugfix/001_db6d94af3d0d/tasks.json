@@ -75,14 +75,14 @@
               "type": "Task",
               "id": "P1.M2.T1",
               "title": "docs/bench/ evidence scaffolding: index, capture procedure, per-session templates (software-preparable)",
-              "status": "Planned",
+              "status": "Researching",
               "description": "The docs/bench/ directory does not exist. Create the evidence-package skeleton the bench operator fills in: an index README (sessions, dates, firmware revision, per-checklist pass/fail, BLOCKED-status support), the serial capture procedure, and one template per session type with the expected ordered log-line prefixes as grep-able checklists. This task needs no hardware and unblocks the physical sessions.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T1.S1",
                   "title": "Create docs/bench/README.md index template and capture procedure",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [],
                   "context_scope": "CONTRACT DEFINITION:\n1. RESEARCH NOTE: plan/001_53984f832581/bugfix/001_db6d94af3d0d/architecture/bench_evidence_package.md sections 1-4: the original plan task P1.M7.T2.S1 contract requires date-stamped evidence files under docs/bench/; log formats are APPEND-ONLY and prefix-anchored (jug_filler.ino:1343-1344) so evidence greps anchor on exact prefixes; sessions are USB-powered with the buck disconnected (the log stream only exists in USB sessions).\n2. INPUT: Session definitions A-E and the file-layout convention from bench_evidence_package.md sections 2-3; normative log-line grammar from system_context.md section 2. No prior subtask output.\n3. LOGIC: Create docs/bench/README.md containing: (a) an index table - one row per session (A dry bench, rails, B flow-1, C flow-2, D fault paths, E watchdog) with columns for date, evidence filename, firmware git rev, per-checklist pass/fail summary, and a status field that supports BLOCKED-with-reason; (b) the capture procedure section: USB-powered rule, 115200 baud, save-to-file, and the operator header block every evidence file starts with (date, firmware build/git rev, wiring notes, deviations); (c) the integrity rule stated verbatim: evidence logs must be genuine captures; if the rig is unavailable record BLOCKED with reason - never fabricate log contents.\n4. OUTPUT: docs/bench/README.md consumed by P1.M2.T1.S2 (templates must match its conventions) and finalized by P1.M2.T2.S5.\n5. MOCKING: none - static markdown authoring, no hardware needed.\n6. DOCS: Mode A - this subtask creates the doc artifact itself (docs/bench/README.md).",
@@ -97,7 +97,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T1.S2",
                   "title": "Author per-session evidence templates (A-E), rails sheet, and discrepancy list template",
-                  "status": "Planned",
+                  "status": "Researching",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M2.T1.S1"
