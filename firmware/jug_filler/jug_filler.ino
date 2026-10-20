@@ -1355,6 +1355,67 @@ static uint16_t s_adcAvg1 = 0;      // latest emitted averaged pair (counts) —
 static uint16_t s_adcAvg2 = 0;      //   handoff P1.M6.T2.S1 routes into FillEngine
 // ---- end ADC sampling service state (used by loop, kept by P1.M6.T2.S1) ----
 
+// ---- Fill engine routing state (P1.M6.T2.S1) ----
+// Hardware side of the fill lifecycle (PRD §7): one FillEngine::step() per
+// loop pass, fed by the stages above it (BOOT event from the BOOTSEL stage,
+// reading-due flag + latest emitted pair from the ADC stage, the loop's
+// single nowMs snapshot) and driving the outputs below it: the valve pin,
+// the LED pattern engine (and the WS2812 mirror via the shared s_led tick),
+// and one logLine per engine log event (PRD §3). The engine itself is pure
+// and native-tested (P1.M6.T1.S1–S3); this block only routes. Static init
+// constructs the engine in Idle with the valve closed — "construct services
+// in Idle" — before setup() runs (PRD §3 RAM-only state).
+static FillEngine s_fill;
+// setMode shadow: LedPatternEngine::setMode unconditionally RELEASES the
+// pattern phase anchor — calling it every pass would restart FaultBlink and
+// DonePulse at t=0 forever (LED reads "stuck on"). Call ONLY on a (mode,
+// code) CHANGE. Shadow init matches FillEngine's Idle levels (Off, 0), so
+// no spurious setMode fires on the first pass.
+static LedPatternEngine::Mode s_prevLedMode   = LedPatternEngine::Mode::Off;
+static uint8_t                s_prevFaultCode = 0;
+
+// ONE logLine per engine event (PRD §3: state transitions + backstop
+// computations; raw sensor counts are the 1 Hz S1=/S2= commissioning line
+// above). Formats are NORMATIVE — documented in README.md "Serial logging".
+// Sensor payloads are 0-based in the engine (0 == sensor 1); printed 1-based
+// to match the §7 fault codes 1/2. %lu with uint32_t payloads is the landed
+// house precedent (cf. the BTN line) — exact on arm-none-eabi.
+static void logFillEvent(const FillLogEvent& e) {
+    switch (e.kind) {
+        case FillLogEvent::Kind::ValveClosed:
+            logLine("VALVE close"); break;
+        case FillLogEvent::Kind::FillStart:   // a: table min; b: recovery ms (0 = fresh boot)
+            logLine("FILL start backstop=%umin recovery=%lums", e.a, e.b); break;
+        case FillLogEvent::Kind::BaselineOk:  // a/b: dry baselines, counts
+            logLine("BASE ok s1=%u s2=%u", e.a, e.b); break;
+        case FillLogEvent::Kind::BaselineFault:
+            logLine("FAULT baseline sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::ValveOpen:   // a: budget minutes at open (incl. stacked +5s)
+            logLine("VALVE open budget=%umin", e.a); break;
+        case FillLogEvent::Kind::Trip:        // a: valve-open ms at first trip
+            logLine("TRIP sensor=%u fillms=%lu", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::ConfirmPass: // a: confirm duration ms
+            logLine("CONFIRM pass sensor=%u durms=%lu", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::Done:        // a: press->close ms; b: valve-open ms
+            logLine("DONE attemptms=%lu openms=%lu", e.a, e.b); break;
+        case FillLogEvent::Kind::Abort:       // a: attempt duration ms
+            logLine("ABORT attemptms=%lu", e.a); break;
+        case FillLogEvent::Kind::EarlyWetFault:
+            logLine("FAULT earlywet sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::EarlyTripFault:
+            logLine("FAULT earlytrip sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::BackstopExpired:
+            logLine("FAULT backstop code=%u", e.a); break;
+        case FillLogEvent::Kind::ConfirmTimeout:
+            logLine("FAULT confirm sensor=%u code=%u", (unsigned)(e.sensor + 1), e.a); break;
+        case FillLogEvent::Kind::Plus5:       // a: new total budget minutes
+            logLine("PLUS5 budget=%umin", e.a); break;
+        case FillLogEvent::Kind::Ack:
+            logLine("ACK done"); break;
+    }
+}
+// ---- end Fill engine routing state (used by loop; feeding P1.M7.T2.S1) ----
+
 // ---- External LED driver state (P1.M5.T2.S1) ----
 // Hardware side of LED signaling (PRD §4): the external green LED on GP14 is
 // AUTHORITATIVE — the onboard WS2812 (P1.M5.T3.S1) only mirrors it. Wiring
@@ -1552,8 +1613,10 @@ void loop() {
     s_adc.addSample(0, (uint16_t)analogRead(PIN_SENSOR1), nowMs);  // 0 == S1 / fault 1
     s_adc.addSample(1, (uint16_t)analogRead(PIN_SENSOR2), nowMs);  // 1 == S2 / fault 2
   }
+  bool readingDueThisPass = false;  // fresh averaged pair emitted THIS pass (engine stream gate)
   if (s_adc.readingDue(nowMs)) {
     s_adc.takeReading(nowMs, s_adcAvg1, s_adcAvg2);  // emits + re-anchors cadence
+    readingDueThisPass = true;
   }
   // Commissioning log (PRD §9.3): one line per second of the LATEST EMITTED
   // averaged pair, in raw 12-bit counts (3.3 V full-scale) — the same quantity
@@ -1566,6 +1629,31 @@ void loop() {
     logLine("S1=%u S2=%u", (unsigned)s_adcAvg1, (unsigned)s_adcAvg2);
   }
   // ---- end ADC sample / aggregate / commissioning log ----
+  // ---- Fill lifecycle routing (P1.M6.T2.S1) — the loop's fourth stage ----
+  // ONE step per pass, EVERY pass (not only on reading-due): button events
+  // fire on their release pass, the backstop and confirm deadlines are
+  // evaluated every pass, and the false-trip guards read the freshest
+  // emitted pair between emissions — readingDue gates only the reading
+  // stream (FillEngine::step contract).
+  const FillEngineOutputs fill =
+      s_fill.step(nowMs, ev, readingDueThisPass, s_adcAvg1, s_adcAvg2);
+  // Valve FIRST — the physical mirror of the engine's logs[0]==ValveClosed
+  // ordering law (§7.9): the pin is LOW before the closing log line exists.
+  // Level write every pass: idempotent SIO register write, sub-microsecond,
+  // so the pin can never drift from the commanded level and every change
+  // (open AND close) lands within one sub-millisecond pass (§10).
+  digitalWrite(PIN_VALVE, fill.valveOpen ? HIGH : LOW);
+  for (uint8_t i = 0; i < fill.logCount; ++i) logFillEvent(fill.logs[i]);
+  if (fill.ackBlink) s_led.triggerAck();  // EDGE: exactly the +5-applied pass (PRD §4 transient)
+  // CHANGE-gated setMode (see the routing-state block): setMode releases
+  // the pattern phase anchor, so calling it every pass would freeze every
+  // blink pattern at t=0. faultCode rides as the FaultBlink group count.
+  if (fill.led != s_prevLedMode || fill.faultCode != s_prevFaultCode) {
+    s_led.setMode(fill.led, fill.faultCode);
+    s_prevLedMode   = fill.led;
+    s_prevFaultCode = fill.faultCode;
+  }
+  // ---- end Fill lifecycle routing ----
   // ---- External LED drive (P1.M5.T2.S1) — the loop's LED stage ----
   // ONE tick of the pattern engine per pass, ONE pin write (PRD §10: nothing
   // here may block; the engine is a pure function of nowMs). Uses the loop's
@@ -1579,11 +1667,6 @@ void loop() {
   digitalWrite(PIN_LED, ledOn ? HIGH : LOW);     // GP14 -> 330R -> LED -> GND
   wsMirrorUpdate(s_led.mode(), ledOn);           // PRD §4 mirror: color from mode, level from same tick
   // ---- end External LED drive ----
-  // P1.M6.T2.S1 fills the loop below this line (fill engine routing + event
-  // logs via logLine — INSERT ABOVE the External LED drive so mode selection
-  // precedes s_led.tick in the same pass; ADC sampling landed in P1.M3.T1.S2,
-  // LED drive in P1.M5.T2.S1). Nothing may ever be inserted above
-  // watchdog_update().
 }
 
 #endif  // ARDUINO
