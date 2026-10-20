@@ -1,0 +1,12 @@
+h1.0 Bug Fix Requirements
+ h2.0 Overview
+ h2.1 Critical Issues (Must Fix)
+ h2.2 Major Issues (Should Fix)
+ h2.3 Minor Issues (Nice to Fix)
+  h3.0 Issue 1: COMMISSIONING.md §5a cites impossible/contradictory FILL-start log examples
+  h3.1 Issue 2: README serial-log table shows impossible 'BTN short 1234ms' example
+  h3.2 Issue 3: Physical bench validation of PRD §9 flows and fault paths not executed (no evidence)
+ h2.4 Testing Summary
+ h2.5 Recommendations
+---
+para:15 list:5
