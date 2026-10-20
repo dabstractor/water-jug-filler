@@ -985,6 +985,310 @@ FillOutputs fillApplyButton(FillState& state, ButtonClassifier::Event ev) {
 }
 // ===== end fill-state transition core (consumed by P1.M6.T1.S2, P1.M6.T2.S1) =====
 
+// ===================== Fill lifecycle engine (P1.M6.T1.S2) =====================
+// PRD §7's fill lifecycle as ONE pure step function: composes the §5.1
+// transition core (P1.M6.T1.S1) with BaselineCapture (P1.M3.T2.S1),
+// TripDetectors + FalseTripGuards (P1.M3.T3.S1/S2), RecoveryClock +
+// FillDeadline (P1.M4.T2.S1) and the LED mode map (P1.M5.T1.S1 via
+// fillLevelOutputs) into the full sequence
+//   IDLE --press--> settle/baseline (valve CLOSED — settle runs INSIDE
+//   FILLING, arch §3.1) -> baseline Ok -> valve OPEN + deadline anchored
+//   at the OPEN instant (§6 preamble bounds valve-open time) -> first
+//   trip: valve closed FIRST, CONFIRM (§7.4/§7.9) -> second trip within
+//   CONFIRM_WINDOW_S: DONE, recovery reference = the valve-CLOSE instant
+//   (§7.8) — with every alternate ending (abort §5.2, baseline/guard/
+//   confirm/backstop fault §7) driving the valve LOW as its FIRST action.
+//
+// SEAM: step() takes the injected clock, the classified button event and
+// the averaged pair "when due" (the loop owns the ReadingAggregator,
+// P1.M3.T1.S2 — the engine never samples). It RETURNS levels + edges + an
+// ORDERED action log; it never touches pins, Serial or LedPatternEngine
+// state. P1.M6.T2.S1 routes them: valve write; s_led.setMode(o.led,
+// o.faultCode) ONLY ON CHANGE (setMode re-anchors the pattern phase —
+// calling it every pass would freeze every blink); o.ackBlink ->
+// triggerAck(); one logLine per log event.
+//
+// Sub-phase model: FILLING spans the WHOLE attempt, press to end (arch §3.1):
+//   state==Filling && !valveOpen_ -> settle/baseline (valve closed)
+//   state==Filling &&  valveOpen_ -> valve open: guards, trip, backstop —
+//                                   evaluated EVERY pass, in that order
+//   state==Confirm                -> valve closed: second trip vs the
+//                                   CONFIRM_WINDOW_S timeout (inclusive at
+//                                   exactly 12.000 s; a second trip latched
+//                                   in the same pass wins)
+// Guards and backstop run ONLY while the valve is open: entering CONFIRM
+// proves the first trip passed fill time >= TRIP_MIN_ELAPSED_S (else
+// EarlyTripFault fired first — guards are evaluated before the trip
+// check), so both guard windows are provably closed throughout CONFIRM;
+// and the backstop bounds VALVE-OPEN time, which is already over.
+//
+// Recovery references (arch §3.3, §6.1): DONE records the valve-CLOSE
+// (first-trip) instant; abort and every fault record the attempt-end
+// instant. Every fill computes its backstop ONCE at press
+// (FillDeadline::beginFill) and anchors at OPEN (FillDeadline::anchor) —
+// the 2 s settle never eats the budget, and a settle abort never anchored.
+//
+// §7.9 ordering law (uniform): ANY step that leaves Filling/Confirm logs
+// ValveClosed as logs[0] — including the baseline fault (valve never
+// opened), the settle abort, and Confirm exits (valve already closed):
+// driving an already-LOW pin LOW again IS the invariant. The invariant
+// suite (P1.M7.T1.S1) asserts this ordering.
+
+// Worst single step = 5 events (the same-step double trip: ValveClosed,
+// Trip, ValveClosed, ConfirmPass, Done). Block-scope so FillEngineOutputs
+// can size its array (class not yet defined at that point).
+constexpr uint8_t FILL_LOG_CAPACITY = 5;
+
+// One ordered engine action. T2.S1 formats ONE logLine per event; the
+// ORDER is normative (logs[0] == ValveClosed on any fill-ending step).
+struct FillLogEvent {
+    enum class Kind : uint8_t {
+        ValveClosed     = 1,   // fill end, ANY cause — ALWAYS first on its step (§7.9)
+        FillStart       = 2,   // a: backstop table minutes; b: recovery ms at press (0 = fresh boot)
+        BaselineOk      = 3,   // a/b: dry baselines, counts
+        BaselineFault   = 4,   // sensor: failing; a: fault code (sensor+1)
+        ValveOpen       = 5,   // a: budget minutes at open (incl. pre-open +5s)
+        Trip            = 6,   // sensor: first-trip sensor; a: fill time ms
+        ConfirmPass     = 7,   // a: confirm duration ms
+        Done            = 8,   // a: attempt ms (press->valve close); b: valve-open ms
+        Abort           = 9,   // a: attempt duration ms
+        EarlyWetFault   = 10,  // sensor: shorted/wet-too-early; a: fault code
+        EarlyTripFault  = 11,  // sensor: false trip; a: fault code
+        BackstopExpired = 12,  // a: fault code 3
+        ConfirmTimeout  = 13,  // sensor: never tripped in window; a: fault code
+        Plus5           = 14,  // a: new total budget minutes
+        Ack             = 15,  // DONE acknowledged -> IDLE
+    };
+    Kind     kind;    // what happened
+    uint8_t  sensor;  // 0 == sensor 1 (fault code 1), 1 == sensor 2 (fault code 2); 0 when n/a
+    uint32_t a;       // payload 1 (ms / counts / minutes / code — per Kind)
+    uint32_t b;       // payload 2
+};
+
+// One step()'s entire observable effect. Levels are safe to route every
+// pass; edges are true for exactly the step that caused them.
+struct FillEngineOutputs {
+    bool valveOpen;              // LEVEL: commanded pin — HIGH only in FILLING's valve sub-phase
+    LedPatternEngine::Mode led;  // LEVEL: PRD §4 pattern for the current state
+    uint8_t faultCode;           // LEVEL: 0, or 1..3 while in FAULT (blink groups: P1.M6.T1.S3)
+    bool plus5Applied;           // EDGE: +5 applied this step (extend5 already done internally)
+    bool acknowledged;           // EDGE: DONE acknowledged this step
+    bool ackBlink;               // EDGE: route to LedPatternEngine::triggerAck() this step
+    uint8_t logCount;            // ordered actions; logs[0] is ValveClosed on any fill end
+    FillLogEvent logs[FILL_LOG_CAPACITY];
+};
+
+class FillEngine {
+public:
+    FillEngine()
+        : state_(FillState::Idle), valveOpen_(false),
+          valveOpenedAtMs_(0), valveClosedAtMs_(0), confirmStartMs_(0),
+          fillStartMs_(0), confirmFirst_(0), faultCode_(0), logCount_(0) {}
+
+    // Advance the lifecycle one loop pass.
+    //   nowMs      — injected clock, same domain as every service (seam rule)
+    //   ev         — classified BOOT event (P1.M2.T1.S1); None on most passes
+    //   readingDue — true iff the loop's aggregator emitted a fresh averaged
+    //                pair THIS pass; gates baseline/detector feeding
+    //   avg1/avg2  — the latest EMITTED pair (loop's s_adcAvg1/2): the
+    //                guards want the freshest levels even between emissions
+    FillEngineOutputs step(uint32_t nowMs, ButtonClassifier::Event ev,
+                           bool readingDue, uint16_t avg1, uint16_t avg2) {
+        FillEngineOutputs out{};  // zero-init: valve closed, Off, no edges (§10 fail-safe)
+        logCount_ = 0;
+
+        // ---- 1. Button table (§5.1, P1.M6.T1.S1) -------------------------
+        const FillState before = state_;
+        bool plus5Pending = false;  // Plus5 log deferred to post-phase (§7.9)
+        const FillOutputs btn = fillApplyButton(state_, ev);
+        if (btn.plus5Applied) {  // FILLING long-press: +5 to THIS fill, stacks
+            deadline_.extend5();
+            out.plus5Applied = true;
+            out.ackBlink = true;  // -> triggerAck() (PRD §4 transient)
+            plus5Pending = true;  // logged AFTER phase work — see block 6½
+        }
+        if (btn.acknowledged) {  // DONE press: light off via the Idle levels
+            out.acknowledged = true;
+            log(FillLogEvent::Kind::Ack, 0, 0, 0);
+        }
+
+        // ---- 2. Fill start: the ONLY entry into FILLING (Idle+ShortPress)
+        if (before == FillState::Idle && state_ == FillState::Filling) {
+            fillStartMs_ = nowMs;
+            deadline_.beginFill(clock_, nowMs);  // backstop ONCE, at press (§6.2)
+            baseline_.begin(nowMs);              // settle+collect; valve stays closed
+            valveOpen_ = false;                  // settle runs inside FILLING (arch §3.1)
+            faultCode_ = 0;
+            log(FillLogEvent::Kind::FillStart, 0, deadline_.tableMinutes(),
+                deadline_.recoveryMsAtStart());
+        }
+
+        // ---- 3. Abort: Filling+ShortPress -> Idle (§5.2 flow 1) -----------
+        if (before == FillState::Filling && state_ == FillState::Idle) {
+            valveOpen_ = false;  // §7.9: LOW FIRST — uniform, even if never opened
+            log(FillLogEvent::Kind::ValveClosed, 0, 0, 0);
+            clock_.recordFillEnd(nowMs);  // §6.1: recovery restarts at the abort instant
+            log(FillLogEvent::Kind::Abort, 0, elapsedMs(nowMs, fillStartMs_), 0);
+        }
+
+        // ---- 4. Route the reading stream — EXACTLY ONCE per step ----------
+        // (After the button blocks so a just-started fill owns the stream and
+        // a just-aborted one drops it; before the phase work so the reading
+        // that completes the baseline/trip is seen by blocks 5/6 same step.)
+        if (readingDue) {
+            if (state_ == FillState::Filling && !valveOpen_) {
+                baseline_.addReading(nowMs, avg1, avg2);  // settle drops pre-2 s pairs
+            } else if (state_ == FillState::Filling || state_ == FillState::Confirm) {
+                trip1_.feed(avg1);  // a latched detector ignores feeds (P1.M3.T3.S1)
+                trip2_.feed(avg2);
+            }
+        }
+
+        // ---- 5. FILLING work ---------------------------------------------
+        if (state_ == FillState::Filling && !valveOpen_) {
+            // settle/baseline sub-phase: the §7.1 plausibility gate
+            if (baseline_.done()) {
+                const bool bad1 = baseline_.verdict(0) != BaselineCapture::Verdict::Ok;
+                const bool bad2 = baseline_.verdict(1) != BaselineCapture::Verdict::Ok;
+                if (bad1 || bad2) {
+                    // Refuse to open the valve (§7.1). Sensor 1 wins ties
+                    // (house precedence, cf. FalseTripGuards).
+                    endFillFault(nowMs, FillLogEvent::Kind::BaselineFault, bad1 ? 0 : 1);
+                } else {
+                    trip1_.begin(baseline_.baseline(0));  // VALIDATED baselines only
+                    trip2_.begin(baseline_.baseline(1));  // (TripDetector::begin contract)
+                    guards_.begin(baseline_.baseline(0), baseline_.baseline(1));
+                    valveOpen_ = true;         // the ONLY valve-open site in the firmware
+                    valveOpenedAtMs_ = nowMs;
+                    deadline_.anchor(nowMs);   // §6 preamble: bounds valve-open time
+                    log(FillLogEvent::Kind::BaselineOk, 0,
+                        baseline_.baseline(0), baseline_.baseline(1));
+                    log(FillLogEvent::Kind::ValveOpen, 0, deadline_.budgetMinutes(), 0);
+                }
+            }
+        } else if (state_ == FillState::Filling) {
+            // valve-open sub-phase — EVERY pass, guards -> trip -> backstop:
+            // a false trip must fault (not CONFIRM); a real trip outranks
+            // the backstop.
+            const GuardVerdict v = guards_.evaluate(nowMs, valveOpenedAtMs_,
+                                                    trip1_.tripped(), trip2_.tripped(),
+                                                    avg1, avg2);
+            if (v.kind != GuardVerdict::Ok) {
+                endFillFault(nowMs,
+                             v.kind == GuardVerdict::EarlyWetFault
+                                 ? FillLogEvent::Kind::EarlyWetFault
+                                 : FillLogEvent::Kind::EarlyTripFault,
+                             v.sensor);
+            } else if (trip1_.tripped() || trip2_.tripped()) {
+                // First trip (§7.4): valve closed FIRST, then CONFIRM.
+                const uint8_t first = trip1_.tripped() ? 0 : 1;
+                valveOpen_ = false;  // §7.9: LOW FIRST — before the state flip
+                log(FillLogEvent::Kind::ValveClosed, 0, 0, 0);
+                log(FillLogEvent::Kind::Trip, first,
+                    elapsedMs(nowMs, valveOpenedAtMs_), 0);
+                state_ = FillState::Confirm;
+                confirmFirst_ = first;
+                confirmStartMs_ = nowMs;
+                valveClosedAtMs_ = nowMs;  // §7.8: DONE's recovery reference
+            } else if (deadline_.expired(nowMs)) {
+                endFillFault(nowMs, FillLogEvent::Kind::BackstopExpired, 0);  // code 3
+            }
+        }
+
+        // ---- 6. CONFIRM work (also on the step it was entered — a -------
+        // ---- same-step second trip completes the fill immediately) ------
+        if (state_ == FillState::Confirm) {
+            const uint8_t other = (uint8_t)(1u - confirmFirst_);
+            const bool otherTripped = (other == 0) ? trip1_.tripped() : trip2_.tripped();
+            if (otherTripped) {
+                // §7.8: DONE; recovery reference = the valve-CLOSE instant —
+                // a PAST timestamp; elapsedMs arithmetic handles it exactly.
+                log(FillLogEvent::Kind::ValveClosed, 0, 0, 0);  // uniform §7.9 exit ordering
+                state_ = FillState::Done;
+                clock_.recordFillEnd(valveClosedAtMs_);
+                log(FillLogEvent::Kind::ConfirmPass, other,
+                    elapsedMs(nowMs, confirmStartMs_), 0);
+                log(FillLogEvent::Kind::Done, 0,
+                    elapsedMs(valveClosedAtMs_, fillStartMs_),
+                    elapsedMs(valveClosedAtMs_, valveOpenedAtMs_));
+            } else if (elapsedMs(nowMs, confirmStartMs_) >=
+                       (uint32_t)CONFIRM_WINDOW_S * 1000u) {  // widen BEFORE x1000;
+                // inclusive at exactly 12.000 s (deadlinePassed house style)
+                // §7.5: the other sensor never tripped — fault IT.
+                endFillFault(nowMs, FillLogEvent::Kind::ConfirmTimeout, other);
+            }
+        }
+
+        // ---- 6½. Deferred Plus5 log (§7.9 ordering law) ------------------
+        // The log is a PRIORITY-ordered action stream (logs[0] == ValveClosed
+        // on ANY fill-ending step — the loop must write the valve first), so
+        // the Plus5 entry is appended after the phase work: a same-step
+        // fault/trip keeps ValveClosed at logs[0]. extend5() itself already
+        // ran in block 1 (valid before or after the deadline anchor).
+        if (plus5Pending) log(FillLogEvent::Kind::Plus5, 0, deadline_.budgetMinutes(), 0);
+
+        // ---- 7. Levels from the (possibly new) state ---------------------
+        out.valveOpen = valveOpen_ && state_ == FillState::Filling;
+        out.led = fillLevelOutputs(state_).led;
+        out.faultCode = (state_ == FillState::Fault) ? faultCode_ : 0;
+        out.logCount = logCount_;
+        for (uint8_t i = 0; i < logCount_; ++i) out.logs[i] = logs_[i];
+        return out;
+    }
+
+    // ---- observability (tests, P1.M6.T2.S1, P1.M6.T1.S3, P1.M7.T1.S1) ----
+    FillState state() const { return state_; }
+    uint8_t faultCode() const { return faultCode_; }   // 0, or 1..3 (§7 table)
+    bool valveOpen() const { return valveOpen_; }
+    uint32_t valveOpenedAtMs() const { return valveOpenedAtMs_; }
+    const FillDeadline& deadline() const { return deadline_; }
+    const RecoveryClock& clock() const { return clock_; }
+
+private:
+    // Append one ordered action. Drop-proof by design (worst step = 5);
+    // the guard is defensive only.
+    void log(FillLogEvent::Kind kind, uint8_t sensor, uint32_t a, uint32_t b) {
+        if (logCount_ >= FILL_LOG_CAPACITY) return;
+        logs_[logCount_].kind = kind;
+        logs_[logCount_].sensor = sensor;
+        logs_[logCount_].a = a;
+        logs_[logCount_].b = b;
+        ++logCount_;
+    }
+
+    // Every fault exit in one place: valve LOW FIRST (§7.9 — uniform even
+    // when the valve never opened or is already closed), latch the code,
+    // recovery reference at the attempt-end instant (arch §3.3).
+    void endFillFault(uint32_t nowMs, FillLogEvent::Kind why, uint8_t sensor) {
+        valveOpen_ = false;  // §7.9: LOW FIRST — before the state flip
+        log(FillLogEvent::Kind::ValveClosed, 0, 0, 0);
+        state_ = FillState::Fault;
+        faultCode_ = (why == FillLogEvent::Kind::BackstopExpired)
+                         ? 3                        // "timer, no trip" (§7 table)
+                         : (uint8_t)(sensor + 1);   // sensor fault code
+        clock_.recordFillEnd(nowMs);
+        log(why, sensor, faultCode_, 0);
+    }
+
+    FillState       state_;            // the §5.1 machine's state (S1 core drives it)
+    bool            valveOpen_;        // valve sub-phase level: settle=false, open=true
+    uint32_t        valveOpenedAtMs_;  // §6 anchor instant (guards' fill-time origin)
+    uint32_t        valveClosedAtMs_;  // first-trip instant — DONE's recovery ref (§7.8)
+    uint32_t        confirmStartMs_;   // CONFIRM window origin (== valve close)
+    uint32_t        fillStartMs_;      // press-accept instant (attempt duration origin)
+    uint8_t         confirmFirst_;     // sensor that tripped first (0/1)
+    uint8_t         faultCode_;        // 0, or 1..3 latched at Fault entry
+    BaselineCapture baseline_;
+    TripDetector    trip1_;            // sensor 1 (index 0, fault code 1)
+    TripDetector    trip2_;            // sensor 2 (index 1, fault code 2)
+    FalseTripGuards guards_;
+    RecoveryClock   clock_;
+    FillDeadline    deadline_;
+    FillLogEvent    logs_[FILL_LOG_CAPACITY];
+    uint8_t         logCount_;
+};
+// ===== end fill lifecycle engine (consumed by P1.M6.T2.S1, P1.M6.T1.S3, P1.M7.T1.S1) =====
+
 // ---- #ifdef ARDUINO REGION: hardware glue ----
 #ifdef ARDUINO
 

@@ -445,7 +445,7 @@
               "type": "Task",
               "id": "P1.M6.T1",
               "title": "Pure fill engine",
-              "status": "Planned",
+              "status": "Ready",
               "description": "State transition table, lifecycle orchestration and fault latching as one natively-testable engine.",
               "subtasks": [
                 {
@@ -472,7 +472,7 @@
                   "type": "Subtask",
                   "id": "P1.M6.T1.S2",
                   "title": "Lifecycle orchestration: baseline -> valve -> trip -> CONFIRM -> DONE (pure)",
-                  "status": "Researching",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M6.T1.S1",
@@ -496,7 +496,7 @@
                   "type": "Subtask",
                   "id": "P1.M6.T1.S3",
                   "title": "Fault latching and blink codes 1/2/3 (pure)",
-                  "status": "Planned",
+                  "status": "Ready",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M6.T1.S2"
