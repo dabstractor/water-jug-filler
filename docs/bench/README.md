@@ -24,13 +24,13 @@ lives in the session's evidence template (P1.M2.T1.S2), summarized here as `pass
 
 | Session | Scope | Date | Evidence file | FW git rev | Checklist | Status |
 |---|---|---|---|---|---|---|
-| A | Dry bench check + Stage-2 rail measurement (SPEC §9.1–9.2, §4) | — | `YYYY-MM-DD_session-A-dry-bench.log` + `YYYY-MM-DD_rails.md` | — | — | BLOCKED: rig unavailable — no RP2040-Zero serial device detected on this host (pio device list empty) and no multimeter/physical access for the Phase R buck-rail measurement |
-| B | Flow 1: abort + recomputed restart (SPEC §9.4, §6.1) | — | `YYYY-MM-DD_session-B-flow1-abort.log` | — | — | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven) and no RP2040-Zero serial device is present on this host; the physical button presses, sensor hand-dips, and LED observations require a human operator. No capture taken, no log file created (integrity rule) |
-| C | Flow 2: successful fill through DONE/ACK (SPEC §9.4, §7) | — | `YYYY-MM-DD_session-C-flow2-success.log` | — | — | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven) and no RP2040-Zero serial device is present on this host; the physical button presses, sensor hand-dips, and LED observations require a human operator. No capture taken, no log file created (integrity rule) |
-| D | Fault paths: baseline, no-confirm, optional guards (SPEC §7) | — | `YYYY-MM-DD_session-D-fault-paths.log` | — | — | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven; upstream sessions A/B/C not executed) and no RP2040-Zero serial device is present on this host; the wet-start/no-confirm fault induction, button presses, and red blink-group LED observations require a human operator. No capture taken, no log file created (integrity rule) |
-| E | Optional watchdog-reset check (SPEC §10) | — | `YYYY-MM-DD_session-E-watchdog.log` | — | — | BLOCKED: rig unavailable — entry-gate rows A/B/C are BLOCKED (rig unproven; upstream sessions not executed) and no RP2040-Zero serial device is present on this host; flashing the temporary BENCH_HANG_TEST hang patch, tapping RESET, and capturing the watchdog-reset stream require physical rig access. No capture taken, no log file created, no firmware touched (integrity rule) |
+| A | Dry bench check + Stage-2 rail measurement (SPEC §9.1–9.2, §4) | 2026-10-19 | — (none; BLOCKED — no capture, integrity rule §1) | 290e7e8 | not run | BLOCKED: rig unavailable — no RP2040-Zero serial device detected on this host (pio device list empty) and no multimeter/physical access for the Phase R buck-rail measurement |
+| B | Flow 1: abort + recomputed restart (SPEC §9.4, §6.1) | 2026-10-19 | — (none; BLOCKED — no capture, integrity rule §1) | 290e7e8 | not run | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven) and no RP2040-Zero serial device is present on this host; the physical button presses, sensor hand-dips, and LED observations require a human operator. No capture taken, no log file created (integrity rule) |
+| C | Flow 2: successful fill through DONE/ACK (SPEC §9.4, §7) | 2026-10-19 | — (none; BLOCKED — no capture, integrity rule §1) | 290e7e8 | not run | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven) and no RP2040-Zero serial device is present on this host; the physical button presses, sensor hand-dips, and LED observations require a human operator. No capture taken, no log file created (integrity rule) |
+| D | Fault paths: baseline, no-confirm, optional guards (SPEC §7) | 2026-10-19 | — (none; BLOCKED — no capture, integrity rule §1) | 290e7e8 | not run | BLOCKED: rig unavailable — entry-gate row A is BLOCKED (rig unproven; upstream sessions A/B/C not executed) and no RP2040-Zero serial device is present on this host; the wet-start/no-confirm fault induction, button presses, and red blink-group LED observations require a human operator. No capture taken, no log file created (integrity rule) |
+| E | Optional watchdog-reset check (SPEC §10) | 2026-10-19 | — (none; BLOCKED — no capture, integrity rule §1) | 290e7e8 | not run | BLOCKED: rig unavailable — entry-gate rows A/B/C are BLOCKED (rig unproven; upstream sessions not executed) and no RP2040-Zero serial device is present on this host; flashing the temporary BENCH_HANG_TEST hang patch, tapping RESET, and capturing the watchdog-reset stream require physical rig access. No capture taken, no log file created, no firmware touched (integrity rule) |
 
-Discrepancies (expected-vs-observed, with follow-up issue numbers): `YYYY-MM-DD-discrepancies.md`.
+Discrepancies (expected-vs-observed, with follow-up issue numbers): `2026-10-19-discrepancies.md`.
 
 **Status vocabulary** (the only values allowed in the Status column):
 
@@ -78,3 +78,14 @@ Discrepancies (expected-vs-observed, with follow-up issue numbers): `YYYY-MM-DD-
   `YYYY-MM-DD_rails.md`; `YYYY-MM-DD-discrepancies.md` (one per bench day, shared).
 - Every row above is finalized by P1.M2.T2.S5; per-session templates (P1.M2.T1.S2)
   carry the expected-prefix checklists this index summarizes.
+
+## 5. Package finalization (P1.M2.T2.S5)
+
+- date: 2026-10-19
+- firmware: git 290e7e8 (unchanged across all sessions; docs-only commits since)
+- sessions executed: 0/5 — all BLOCKED (rig unavailable; reasons per row above)
+- discrepancies: 1 filed (D-1, proposed BUG-004); physical validation of the PRD §9
+  flows/fault paths and the §10 watchdog check remains OUTSTANDING pending rig
+  availability — this package is the honest BUG-003 close-out, not a pass.
+- watchdog-patch check: `git status --short firmware/` clean; `grep -rn BENCH_HANG_TEST firmware/`
+  — no hits (no leftover patch).
